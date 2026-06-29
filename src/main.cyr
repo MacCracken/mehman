@@ -1,0 +1,45 @@
+# mehman (Persian مهمان — "guest") — sovereign compat / "swallow"-stage
+# surface backend for the AGNOS compositor (aethersafha).
+#
+# WHAT mehman OWNS
+# ---------------
+# mehman is the legitimate successor to XWayland's *actual* job: hosting the
+# surfaces of FOREIGN apps — ones that do not speak the AGNOS-native compositor
+# protocol — as guests inside a kavach sandbox. The foreign app is a guest
+# (mehman); mehman is the guest-house that takes its pixels and presents them
+# to the compositor as a well-behaved native surface.
+#
+# This is the **swallow stage** of the AGNOS maturity arc: a compat sandbox for
+# foreign apps, deliberately walled off from the native path. It is NOT an
+# X.Org port and NOT "translate X11 protocol to Wayland" — there are no native
+# X11 clients on AGNOS. It is: run a foreign-ABI binary under kavach, capture
+# its surface, hand it to the compositor.
+#
+#   concern                  →  mehman module         →  backed by
+#   ------------------------    --------------------     ----------------------
+#   sandboxed foreign host   →  src/sandbox.cyr       →  kavach (sandbox execution)
+#   foreign-surface capture  →  src/surface.cyr       →  shared-buffer import → aethersafha
+#   protocol shim            →  src/shim.cyr          →  per-foreign-ABI translation
+#   guest lifecycle          →  src/guest.cyr         →  spawn / map / evict
+#
+# RELATIONSHIP TO bhumi
+# ---------------------
+# `bhumi` is the *platform* backend (pixels-out / events-in / seat against the
+# kernel) — the thing the compositor stands ON. `mehman` is a *client* backend —
+# a source of foreign surfaces the compositor presents. They are orthogonal:
+# bhumi is MVP and built first; mehman is POST-MVP (the swallow stage) and is
+# scaffolded now only so the seam exists.
+#
+# Re-exported via dist/mehman.cyr (cyrius distlib). Domain modules land in the
+# sibling files above as the milestones land (see docs/development/roadmap.md);
+# programs/smoke.cyr proves the include chain compiles end-to-end.
+
+# --- module include chain (uncomment as each module lands) ---
+# include "src/sandbox.cyr"    # kavach-sandboxed foreign host
+# include "src/surface.cyr"    # foreign-surface capture / shared-buffer import
+# include "src/shim.cyr"       # per-foreign-ABI protocol translation
+# include "src/guest.cyr"      # guest lifecycle: spawn / map / evict
+
+# Scaffold sentinel — proves the lib header compiles before any module lands.
+# Removed when src/guest.cyr lands the real public surface.
+fn mehman_scaffold_ok(): i64 { return 1; }

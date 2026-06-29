@@ -1,0 +1,17 @@
+[package]
+name = "mehman"
+version = "${file:VERSION}"
+description = "mehman — sovereign compat/swallow surface backend for the AGNOS compositor (hosts foreign-app surfaces in a kavach sandbox)"
+license = "GPL-3.0-only"
+language = "cyrius"
+cyrius = "6.3.5"
+
+[build]
+entry = "programs/smoke.cyr"
+output = "build/mehman-smoke"
+
+[lib]
+modules = ["src/main.cyr"]
+
+[deps]
+stdlib = ["string", "fmt", "alloc", "io", "vec", "str", "syscalls", "assert", "bench"]
