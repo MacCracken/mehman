@@ -1,11 +1,62 @@
 # mehman test suite
-# Stdlib auto-included via cyrius.cyml
+# Stdlib auto-included via cyrius.cyml. src/main.cyr is source-included so the
+# tests can name types.cyr's enum/var constants (MehmanError.*, MEHMAN_*_SIZE):
+# under `cyrius test` the [lib].modules are linked (functions become global
+# symbols) but enum/var constants are only visible to a file that source-
+# includes the module.
+include "src/main.cyr"
 
 fn main() {
     alloc_init();
+
     test_group("smoke");
     assert(1, "true is true");
     assert_eq(1 + 1, 2, "math works");
+    assert_eq(mehman_scaffold_ok(), 1, "scaffold sentinel ok");
+
+    # ----- types.cyr — error namespace ----------------------------------
+    test_group("types.cyr — error namespace");
+    assert_neq(mehman_err_name(MehmanError.OK), 0, "err_name(OK) non-null");
+    assert_neq(mehman_err_name(MehmanError.INVALID_SPEC), 0, "err_name(INVALID_SPEC) non-null");
+    assert_neq(mehman_err_name(MehmanError.EXEC_BLOCKED), 0, "err_name(EXEC_BLOCKED) non-null");
+    assert_neq(mehman_err_name(99), 0, "err_name(unknown) non-null");
+    assert_eq(mehman_err_print(MehmanError.OK, 0), 0, "err_print returns 0");
+
+    # ----- types.cyr — bounded capability set ---------------------------
+    test_group("types.cyr — capability set");
+    var c = caps_swallow_default();
+    assert_neq(c, 0, "swallow caps allocate");
+    assert_eq(MehmanCaps_native_protocol(c), 0, "swallow denies native protocol");
+    assert_eq(MehmanCaps_mediated_io(c), 1, "swallow mediates i/o");
+    assert_eq(caps_is_swallow_valid(c), 1, "default swallow caps are valid");
+
+    # native-protocol access must be rejected
+    MehmanCaps_set_native_protocol(c, 1);
+    assert_eq(caps_is_swallow_valid(c), 0, "native-protocol access is rejected");
+    # unmediated i/o must be rejected
+    MehmanCaps_set_native_protocol(c, 0);
+    MehmanCaps_set_mediated_io(c, 0);
+    assert_eq(caps_is_swallow_valid(c), 0, "unmediated i/o is rejected");
+    # a null capability set is never valid
+    assert_eq(caps_is_swallow_valid(0), 0, "null caps are invalid");
+
+    # ----- types.cyr — guest spec ---------------------------------------
+    test_group("types.cyr — guest spec");
+    var g = guest_spec_new("/bin/true", caps_swallow_default());
+    assert_neq(g, 0, "guest spec allocates");
+    assert_eq(MehmanGuestSpec_command(g), "/bin/true", "command round-trips");
+    assert_eq(guest_spec_is_valid(g), 1, "well-formed spec is valid");
+    # an empty command line is rejected
+    assert_eq(guest_spec_is_valid(guest_spec_new("", caps_swallow_default())), 0, "empty command rejected");
+    # a spec with no capability set is rejected
+    assert_eq(guest_spec_is_valid(guest_spec_new("/bin/true", 0)), 0, "null caps rejected");
+    # a spec whose caps grant native access is rejected
+    var bad = caps_swallow_default();
+    MehmanCaps_set_native_protocol(bad, 1);
+    assert_eq(guest_spec_is_valid(guest_spec_new("/bin/true", bad)), 0, "spec with native-access caps rejected");
+    # a null spec is rejected
+    assert_eq(guest_spec_is_valid(0), 0, "null spec rejected");
+
     return assert_summary();
 }
 

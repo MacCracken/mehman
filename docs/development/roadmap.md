@@ -17,11 +17,14 @@ _Define before tagging v0.1.0:_
 
 ## Milestones
 
-### M0 — Scaffold (v0.1.0) — ✅ shipped 2026-06-29
+### M0 — Scaffold + foundation (v0.1.0) — ✅ shipped 2026-07-02
 
-- `cyrius init` scaffold landed
+- `cyrius init` scaffold landed (2026-06-29)
 - Doc-tree per [first-party-documentation.md](https://github.com/MacCracken/agnosticos/blob/main/docs/development/applications/first-party-documentation.md)
 - ADRs / architecture notes / guides / examples folders ready
+- **Foundation vocabulary** `src/types.cyr` (`MehmanError` / `MehmanCaps` /
+  `MehmanGuestSpec` + validators) — the dependency-free surface M1 builds on;
+  22-assert validation suite. First release cut 2026-07-02.
 
 > **Gating note**: mehman is **post-MVP** (the swallow stage). Real milestone
 > work starts only after [`bhumi`](https://github.com/MacCracken/bhumi) (the
@@ -35,6 +38,15 @@ bounded capability set (no native protocol access; mediated I/O only).
 Acceptance: a trivial foreign binary runs sandboxed and is reaped cleanly.
 **Dep gate**: kavach sandbox-execution surface; an AGNOS foreign-ABI execution
 path (the swallow stage existing at all).
+
+> **Foundation shipped in v0.1.0 (2026-07-02)**: the dependency-free vocabulary
+> M1 consumes — `src/types.cyr` (`MehmanError` / `MehmanCaps` / `MehmanGuestSpec`
+> + validators) — is released. The M1 host is designed against kavach 3.5.4's
+> surface but is **blocked**: kavach is not yet consumable as a Cyrius library
+> (no `dist/kavach.cyr` bundle / `[lib]` section; no bundle generator in the
+> toolchain; its `src/main.cyr` is a program entry, not a library surface). See
+> [ADR 0001](../adr/0001-defer-m1-until-kavach-is-consumable.md) and
+> [`state.md`](state.md). Unblocking is kavach-repo work.
 
 ### M2 — Foreign-surface capture (v0.3.0)
 

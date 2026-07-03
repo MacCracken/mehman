@@ -35,6 +35,9 @@
 # programs/smoke.cyr proves the include chain compiles end-to-end.
 
 # --- module include chain (uncomment as each module lands) ---
+# Ordered for Cyrius single-pass forward-reference resolution: the foundation
+# vocabulary (types.cyr) is included first so the domain modules can name it.
+include "src/types.cyr"        # foundation vocabulary: error / caps / guest spec
 # include "src/sandbox.cyr"    # kavach-sandboxed foreign host
 # include "src/surface.cyr"    # foreign-surface capture / shared-buffer import
 # include "src/shim.cyr"       # per-foreign-ABI protocol translation

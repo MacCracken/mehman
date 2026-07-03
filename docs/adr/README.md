@@ -19,4 +19,4 @@ Decisions about mehman — what we chose, the context, and the consequences we a
 
 ## Index
 
-_No ADRs yet. Add the first as `0001-kebab-case-title.md`._
+- [0001 — Land the foundation vocabulary dependency-free; defer M1 until kavach is consumable](0001-defer-m1-until-kavach-is-consumable.md) — *Accepted, 2026-07-02*
