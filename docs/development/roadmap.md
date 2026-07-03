@@ -55,11 +55,20 @@ and expose it to the compositor as a native surface via aethersafha.
 Acceptance: a foreign app's framebuffer appears as a compositor surface.
 **Dep gate**: aethersafha surface-import API; bhumi presenting.
 
+> **Capture landed (unreleased, toward v0.3.0)**: the M2 handoff —
+> `mehman_sandbox_capture_guest(spec, surface, out_exit_code)` — runs a foreign
+> guest under the kavach PROCESS sandbox and captures its output into the surface
+> buffer (`surface_blit_bytes`); verified end-to-end (`/bin/echo` → surface bytes).
+> aethersafha 0.4.0 has the compositor side (`foreign.cyr`: guest spec + surface +
+> hosted window + `foreign_run`) and now wires `foreign_run` to this capture.
+> **Capture model is stdout-as-framebuffer** (MVP seam — see
+> [ADR 0004](../adr/0004-m2-surface-capture-stdout-as-framebuffer.md)); real pixel
+> fidelity (shared-memory handoff or an M3 shim) is the follow-on.
+>
 > **Foundation shipped in v0.2.1 (2026-07-03)**: `src/surface.cyr` defines the
 > producer-side `MehmanSurface` descriptor (`MehmanPixelFormat.XRGB8888`,
 > width/height/stride/buffer + validators), value-aligned with bhumi's pixel
-> model — the contract aethersafha imports. The two gated halves remain deferred
-> to the full v0.3.0 milestone:
+> model — the contract aethersafha imports.
 > the **buffer capture** (a PROCESS-backend guest emits stdout, not pixels — no
 > foreign-render path yet) and the **aethersafha handoff** (aethersafha 0.1.0
 > defers consuming mehman — "Bite G", post-MVP — with no surface-import API yet).

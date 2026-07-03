@@ -98,6 +98,35 @@ fn main() {
     assert_eq(surface_is_valid(surface_new(4, 3, MehmanPixelFormat.XRGB8888, 8, pixbuf)), 0, "stride < width*bpp rejected");
     assert_eq(surface_is_valid(surface_new(4, 3, MehmanPixelFormat.XRGB8888, 16, 0)), 0, "null buffer rejected");
 
+    # surface_blit_bytes — the dep-free capture sink: copy + clamp + zero-fill
+    var bb = alloc(16);
+    var bsurf = surface_new(2, 2, MehmanPixelFormat.XRGB8888, 8, bb);   # 16-byte buffer
+    assert_eq(surface_blit_bytes(bsurf, "XY", 2), 2, "blit copies 2 bytes");
+    assert_eq(load8(bb + 0), 88, "blit byte 0 = 'X'");
+    assert_eq(load8(bb + 1), 89, "blit byte 1 = 'Y'");
+    assert_eq(load8(bb + 2), 0, "blit zero-fills the tail");
+    var longsrc = alloc(32);
+    var k = 0; while (k < 32) { store8(longsrc + k, 70); k = k + 1; }   # 32 bytes of 'F'
+    assert_eq(surface_blit_bytes(bsurf, longsrc, 9999), 16, "blit clamps len to buffer size");
+    assert_eq(load8(bb + 15), 70, "clamped blit filled the whole buffer");
+    assert_eq(surface_blit_bytes(bsurf, 0, 5), 0, "null src blits nothing");
+    assert_eq(load8(bb + 0), 0, "null src zeroed the buffer");
+
+    # ----- sandbox.cyr — M2 capture handoff (guest output → surface) -----
+    test_group("sandbox.cyr — M2 capture (swallow handoff)");
+    var capbuf = alloc(64);
+    var capsurf = surface_new(4, 4, MehmanPixelFormat.XRGB8888, 16, capbuf);   # 64-byte buffer
+    assert_neq(capsurf, 0, "capture surface allocates");
+    var capexit = alloc(8);
+    # /bin/echo AB writes "AB\n" to stdout → mehman captures it into the surface buffer
+    assert_eq(mehman_sandbox_capture_guest(guest_spec_new("/bin/echo AB", caps_swallow_default()), capsurf, capexit), MehmanError.OK, "capture runs + reaps clean");
+    assert_eq(load8(capbuf + 0), 65, "captured byte 0 = 'A' (echo stdout)");
+    assert_eq(load8(capbuf + 1), 66, "captured byte 1 = 'B'");
+    assert_eq(load8(capbuf + 2), 10, "captured byte 2 = newline");
+    assert_eq(load8(capbuf + 3), 0, "byte 3 zero-filled past captured output");
+    # capture rejects an invalid surface before touching kavach
+    assert_eq(mehman_sandbox_capture_guest(guest_spec_new("/bin/true", caps_swallow_default()), 0, 0), MehmanError.INVALID_SPEC, "capture rejects null surface");
+
     return assert_summary();
 }
 

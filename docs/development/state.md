@@ -28,16 +28,19 @@ capture + aethersafha handoff) remains v0.3.0, gated on aethersafha.
     access; mediated I/O) as a validatable record.
   - `MehmanGuestSpec` (guest descriptor) + `guest_spec_new` /
     `guest_spec_is_valid` — the validated input the M1 host consumes.
-- `src/sandbox.cyr` — **M1 host**: `mehman_sandbox_run_guest(spec, out_exit_code)`
-  validates the spec, then drives kavach's PROCESS-backend lifecycle
-  (`kavach_init` → `config_new` → `config_backend(PROCESS)` → `sandbox_create` →
+- `src/sandbox.cyr` — **M1 host + M2 capture**: `mehman_sandbox_run_guest(spec,
+  out_exit_code)` drives kavach's PROCESS-backend lifecycle (`kavach_init` →
+  `config_new` → `config_backend(PROCESS)` → `sandbox_create` →
   `sandbox_transition(RUNNING)` → `sandbox_exec` → `sandbox_destroy`), mapping
-  kavach failures onto `MehmanError`.
-- `src/surface.cyr` — **M2 foundation** (dependency-free): the `MehmanSurface`
+  kavach failures onto `MehmanError`. `mehman_sandbox_capture_guest(spec, surface,
+  out_exit_code)` adds the **M2 handoff** — same run, plus blitting the guest's
+  output into the surface buffer. Both share a private `_mehman_run_guest` driver.
+- `src/surface.cyr` — **M2 surface** (dependency-free): the `MehmanSurface`
   descriptor (width / height / format / stride / buffer) + `MehmanPixelFormat`
   (XRGB8888) + `surface_new` / `surface_is_valid` / `mehman_format_bpp` /
-  `surface_size_bytes`. The producer-side surface contract aethersafha imports,
-  value-aligned with bhumi's XRGB8888 pixel model.
+  `surface_size_bytes` + `surface_blit_bytes` (the capture byte sink). The
+  producer-side surface contract aethersafha imports, value-aligned with bhumi's
+  XRGB8888 pixel model.
 
 ## M1 status — shipped (v0.2.0)
 
@@ -59,29 +62,34 @@ as a Cyrius library — is resolved). See
   exercise; ~13 MB static scan tables (`CYRIUS_DCE=1` drops the unreachable
   surface).
 
-## M2 status — foundation landed, capture/handoff gated
+## M2 status — capture landed (unreleased, toward v0.3.0)
 
-`src/surface.cyr` defines the `MehmanSurface` descriptor (the producer-side
-contract aethersafha imports) and its validation, dependency-free and shipped in
-**v0.2.1** as groundwork toward the full v0.3.0 milestone. The two gated halves
-are **deferred**:
+The M2 handoff is implemented: `mehman_sandbox_capture_guest(spec, surface,
+out_exit_code)` (`src/sandbox.cyr`) runs a foreign guest under the kavach PROCESS
+sandbox and captures its output into the surface's pixel buffer via the dep-free
+`surface_blit_bytes`. Verified end-to-end (`/bin/echo AB` → `"AB\n"` in the
+buffer). aethersafha **0.4.0** already has the compositor side (`src/foreign.cyr`:
+guest spec + XRGB8888 surface + hosted window + `foreign_run`) and consumes
+mehman's `types`/`surface`/`sandbox` modules directly (with its own `[deps.kavach]`);
+it switches `foreign_run` to `mehman_sandbox_capture_guest` to back its hosted
+window with live guest content.
 
-- **Buffer capture** — a kavach PROCESS-backend guest produces stdout, not a
-  framebuffer; there is no foreign-guest-renders-a-surface path yet.
-- **aethersafha handoff** — aethersafha exists (0.1.0) but its `cyrius.cyml`
-  defers consuming mehman ("Bite G", post-MVP) and exposes no surface-import API
-  yet.
-
-The descriptor is value-aligned with bhumi's XRGB8888 pixel model, so no format
-remap is needed once the handoff lands.
+- **Capture model** is **stdout-as-framebuffer** (MVP seam): kavach's PROCESS
+  backend gives stdout as a NUL-terminated cstr, so binary XRGB8888 truncates at
+  the first NUL. Real pixel fidelity (shared-memory handoff, a kavach byte-count,
+  or an M3 per-ABI shim) is the follow-on. See
+  [ADR 0004](../adr/0004-m2-surface-capture-stdout-as-framebuffer.md).
+- The descriptor + format stay value-aligned with bhumi's XRGB8888 model, so no
+  remap on handoff.
 
 ## Tests
 
 - `tests/mehman.tcyr` — primary suite: smoke + foundation validation (error
   namespace, capability contract incl. rejection paths, guest-spec validation) +
   M1 host (spec rejection pre-init; real run+reap of `/bin/true`/`/bin/false`) +
-  M2 surface descriptor (format bpp, round-trip, validity + rejection paths).
-  **43 asserts, all passing** on `cyrius test`.
+  M2 surface descriptor + `surface_blit_bytes` + the M2 capture handoff (real
+  `/bin/echo` output captured into a surface buffer). **58 asserts, all passing**
+  on `cyrius test`.
 - `tests/mehman.bcyr` — benchmark stub (no-op)
 - `tests/mehman.fcyr` — fuzz stub
 

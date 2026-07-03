@@ -4,6 +4,23 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **M2 handoff** — `mehman_sandbox_capture_guest(spec, surface, out_exit_code)`
+  (`src/sandbox.cyr`): runs a foreign guest under the kavach PROCESS sandbox **and
+  captures its rendered surface into `surface`'s pixel buffer**, then reaps — the
+  swallow stage's whole act (run a foreign binary sandboxed, capture its surface,
+  hand the populated buffer to the compositor). This is the capture aethersafha
+  0.4.0's `foreign.cyr` waits on to back its hosted window with guest content.
+  Verified end-to-end: `/bin/echo AB` runs sandboxed and `"AB\n"` lands in the
+  surface buffer.
+- `surface_blit_bytes(surface, src, len)` (`src/surface.cyr`) — the dependency-free
+  byte sink (copy + clamp-to-buffer + zero-fill) the capture path fills.
+- **Capture model / caveat**: kavach's PROCESS backend gives the guest's stdout as
+  a NUL-terminated cstr, so the swallow-stage MVP treats stdout **as** the guest's
+  framebuffer (binary XRGB8888 with embedded NUL truncates at the first NUL). True
+  framebuffer capture (shared-memory handoff, or kavach exposing the raw byte
+  count) is a future refinement — see [ADR 0004](docs/adr/0004-m2-surface-capture-stdout-as-framebuffer.md).
+
 ### Changed
 - **Feature-gate kavach** — migrated to cyrius dependency-model lever 2 (v6.3.1):
   `[deps.kavach]` is now `optional = true` behind a default-on `sandbox` feature
