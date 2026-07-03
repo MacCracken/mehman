@@ -1,0 +1,154 @@
+# mehman — M3 protocol shim (foundation)
+#
+# Per-foreign-ABI translation of the compositor↔guest event stream: input
+# (keyboard / pointer), resize, and lifecycle. The compositor (aethersafha)
+# speaks in its own event vocabulary (HID usage codes, window geometry, window
+# state); a foreign guest speaks its ABI's wire. mehman owns the seam: this
+# module defines the event vocabulary and ENCODES each event into a guest-ABI
+# byte wire — the "translation" half of M3.
+#
+# SCOPE (M3 foundation): the event types + the per-ABI encoders. Dependency-free
+# (stdlib only) — a consumer (aethersafha) can build events and translate them
+# without pulling the sandbox/kavach surface. LIVE DELIVERY of the encoded bytes
+# to a running guest is DEFERRED: a kavach PROCESS-backend guest is one-shot
+# (fork+exec+reap, no live stdin), so there is no persistent guest to stream
+# events to yet. Delivery lands with a persistent-guest execution model (a kavach
+# change), the same way M2's real-pixel capture is deferred behind the stdout MVP.
+
+# --- event vocabulary --------------------------------------------------------
+
+# The kind of an input event. KEY carries a USB HID usage code (aligned with the
+# compositor's HID model); POINTER_BUTTON a button id; POINTER_MOTION x/y.
+enum MehmanInputKind {
+    INPUT_KEY = 0;
+    INPUT_POINTER_BUTTON = 1;
+    INPUT_POINTER_MOTION = 2;
+}
+
+# Lifecycle transitions the compositor drives on a hosted guest window.
+enum MehmanLifecycle {
+    LIFECYCLE_MAP = 0;
+    LIFECYCLE_UNMAP = 1;
+    LIFECYCLE_FOCUS = 2;
+    LIFECYCLE_UNFOCUS = 3;
+    LIFECYCLE_CLOSE = 4;
+}
+
+# The target foreign ABI. One today (the swallow-stage native wire); this enum is
+# the extension point — "per-foreign-ABI" means a future ABI adds a case and its
+# own encoders. An unknown ABI encodes nothing (0 bytes).
+enum MehmanAbi {
+    ABI_SWALLOW = 0;
+}
+
+# One input event. Fields (all i64): kind (MehmanInputKind); code (HID usage for
+# KEY, button id for POINTER_BUTTON, 0 for motion); pressed (1 down / 0 up; 0 for
+# motion); x / y (pointer coords for POINTER_MOTION, 0 otherwise).
+#derive(accessors)
+struct MehmanInputEvent {
+    kind;
+    code;
+    pressed;
+    x;
+    y;
+}
+var MEHMAN_INPUT_EVENT_SIZE = 40;   # 5 fields x 8 bytes
+
+# --- swallow-ABI wire tags (first byte of each encoded event) ---------------
+var SHIM_TAG_KEY        = 0x01;
+var SHIM_TAG_PTR_BUTTON = 0x02;
+var SHIM_TAG_PTR_MOTION = 0x03;
+var SHIM_TAG_RESIZE     = 0x10;
+var SHIM_TAG_LIFECYCLE  = 0x20;
+
+# --- input-event constructors (shim_ prefixed to avoid clashing with a
+#     consumer's own input_* helpers) ---------------------------------------
+
+fn shim_input_key(hid_usage, pressed) {
+    var e = alloc(MEHMAN_INPUT_EVENT_SIZE);
+    if (e == 0) { return 0; }
+    MehmanInputEvent_set_kind(e, MehmanInputKind.INPUT_KEY);
+    MehmanInputEvent_set_code(e, hid_usage);
+    MehmanInputEvent_set_pressed(e, pressed);
+    MehmanInputEvent_set_x(e, 0);
+    MehmanInputEvent_set_y(e, 0);
+    return e;
+}
+
+fn shim_input_pointer_button(button, pressed) {
+    var e = alloc(MEHMAN_INPUT_EVENT_SIZE);
+    if (e == 0) { return 0; }
+    MehmanInputEvent_set_kind(e, MehmanInputKind.INPUT_POINTER_BUTTON);
+    MehmanInputEvent_set_code(e, button);
+    MehmanInputEvent_set_pressed(e, pressed);
+    MehmanInputEvent_set_x(e, 0);
+    MehmanInputEvent_set_y(e, 0);
+    return e;
+}
+
+fn shim_input_pointer_motion(x, y) {
+    var e = alloc(MEHMAN_INPUT_EVENT_SIZE);
+    if (e == 0) { return 0; }
+    MehmanInputEvent_set_kind(e, MehmanInputKind.INPUT_POINTER_MOTION);
+    MehmanInputEvent_set_code(e, 0);
+    MehmanInputEvent_set_pressed(e, 0);
+    MehmanInputEvent_set_x(e, x);
+    MehmanInputEvent_set_y(e, y);
+    return e;
+}
+
+# little-endian u16 into out[0..2]; returns 2.
+fn _shim_put_u16(out, v): i64 {
+    store8(out + 0, v & 0xFF);
+    store8(out + 1, (v >> 8) & 0xFF);
+    return 2;
+}
+
+# --- per-ABI encoders (the translation) -------------------------------------
+
+# Encode an input event into `out` for the given ABI. Returns the number of bytes
+# written (0 for a null event or an unsupported ABI). Swallow wire:
+#   KEY            [0x01][code][pressed]                 3 bytes
+#   POINTER_BUTTON [0x02][button][pressed]               3 bytes
+#   POINTER_MOTION [0x03][x:u16 LE][y:u16 LE]            5 bytes
+fn shim_encode_input(abi, ev, out): i64 {
+    if (abi != MehmanAbi.ABI_SWALLOW) { return 0; }
+    if (ev == 0) { return 0; }
+    var kind = MehmanInputEvent_kind(ev);
+    if (kind == MehmanInputKind.INPUT_KEY) {
+        store8(out + 0, SHIM_TAG_KEY);
+        store8(out + 1, MehmanInputEvent_code(ev) & 0xFF);
+        store8(out + 2, MehmanInputEvent_pressed(ev) & 0xFF);
+        return 3;
+    }
+    if (kind == MehmanInputKind.INPUT_POINTER_BUTTON) {
+        store8(out + 0, SHIM_TAG_PTR_BUTTON);
+        store8(out + 1, MehmanInputEvent_code(ev) & 0xFF);
+        store8(out + 2, MehmanInputEvent_pressed(ev) & 0xFF);
+        return 3;
+    }
+    if (kind == MehmanInputKind.INPUT_POINTER_MOTION) {
+        store8(out + 0, SHIM_TAG_PTR_MOTION);
+        _shim_put_u16(out + 1, MehmanInputEvent_x(ev));
+        _shim_put_u16(out + 3, MehmanInputEvent_y(ev));
+        return 5;
+    }
+    return 0;
+}
+
+# Encode a resize event: [0x10][w:u16 LE][h:u16 LE] — 5 bytes (0 for a bad ABI).
+fn shim_encode_resize(abi, w, h, out): i64 {
+    if (abi != MehmanAbi.ABI_SWALLOW) { return 0; }
+    store8(out + 0, SHIM_TAG_RESIZE);
+    _shim_put_u16(out + 1, w);
+    _shim_put_u16(out + 3, h);
+    return 5;
+}
+
+# Encode a lifecycle event: [0x20][event] — 2 bytes (0 for a bad ABI).
+fn shim_encode_lifecycle(abi, event, out): i64 {
+    if (abi != MehmanAbi.ABI_SWALLOW) { return 0; }
+    store8(out + 0, SHIM_TAG_LIFECYCLE);
+    store8(out + 1, event & 0xFF);
+    return 2;
+}

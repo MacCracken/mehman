@@ -41,7 +41,7 @@ include "src/types.cyr"        # foundation vocabulary: error / caps / guest spe
 include "lib/kavach.cyr"       # kavach 3.6.0 sandbox-execution surface (dist bundle)
 include "src/sandbox.cyr"      # M1: kavach-sandboxed foreign host
 include "src/surface.cyr"      # M2 foundation: foreign-surface descriptor (capture/handoff deferred)
-# include "src/shim.cyr"       # per-foreign-ABI protocol translation
+include "src/shim.cyr"         # M3 foundation: per-foreign-ABI event translation (delivery deferred)
 # include "src/guest.cyr"      # guest lifecycle: spawn / map / evict
 
 # Scaffold sentinel — proves the lib header compiles before any module lands.

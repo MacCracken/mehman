@@ -4,6 +4,22 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **M3 foundation — protocol shim** (`src/shim.cyr`): the compositor↔guest event
+  vocabulary (`MehmanInputEvent` + `MehmanInputKind`, `MehmanLifecycle`,
+  `MehmanAbi`) and the per-foreign-ABI **translation** — `shim_encode_input` /
+  `shim_encode_resize` / `shim_encode_lifecycle` encode input (key / pointer),
+  resize, and lifecycle events into the swallow-ABI byte wire, plus the
+  `shim_input_key` / `shim_input_pointer_button` / `shim_input_pointer_motion`
+  constructors. Dependency-free (a consumer translates events without the sandbox
+  surface); grounded in aethersafha's HID-usage / window-geometry model. 22 new
+  asserts (80 total).
+- **Delivery deferred**: a kavach PROCESS-backend guest is one-shot (no live
+  stdin), so streaming the encoded events to a running guest awaits a
+  persistent-guest execution model. M3's acceptance ("a guest receives input and
+  resizes correctly") lands with delivery — see
+  [ADR 0005](docs/adr/0005-m3-shim-event-wire-and-deferred-delivery.md).
+
 ## [0.3.1] — 2026-07-03
 
 ### Changed

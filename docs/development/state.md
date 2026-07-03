@@ -21,8 +21,8 @@ surface descriptor), **0.2.0** (M1 — sandboxed foreign host, kavach 3.6.0), an
 ## Source
 
 - `src/main.cyr` — library header / module-include chain: `src/types.cyr` →
-  `lib/kavach.cyr` (dist bundle) → `src/sandbox.cyr` → `src/surface.cyr`. Retains
-  the `mehman_scaffold_ok` sentinel (removed at M4).
+  `lib/kavach.cyr` (dist bundle) → `src/sandbox.cyr` → `src/surface.cyr` →
+  `src/shim.cyr`. Retains the `mehman_scaffold_ok` sentinel (removed at M4).
 - `src/types.cyr` — **foundation vocabulary** (dependency-free):
   - `MehmanError` enum + `mehman_err_name` / `mehman_err_print`.
   - `MehmanCaps` (bounded capability set) + `caps_swallow_default` /
@@ -43,6 +43,12 @@ surface descriptor), **0.2.0** (M1 — sandboxed foreign host, kavach 3.6.0), an
   `surface_size_bytes` + `surface_blit_bytes` (the capture byte sink). The
   producer-side surface contract aethersafha imports, value-aligned with bhumi's
   XRGB8888 pixel model.
+- `src/shim.cyr` — **M3 foundation** (dependency-free): the compositor↔guest event
+  vocabulary (`MehmanInputEvent` + `MehmanInputKind`, `MehmanLifecycle`,
+  `MehmanAbi`) + per-ABI encoders `shim_encode_input` / `shim_encode_resize` /
+  `shim_encode_lifecycle` (translate events → the swallow-ABI byte wire) +
+  `shim_input_key` / `shim_input_pointer_button` / `shim_input_pointer_motion`.
+  Live delivery to a running guest is deferred (one-shot exec) — see M3 status.
 
 ## M1 status — shipped (v0.2.0)
 
@@ -84,13 +90,27 @@ window with live guest content.
 - The descriptor + format stay value-aligned with bhumi's XRGB8888 model, so no
   remap on handoff.
 
+## M3 status — foundation landed (unreleased, toward v0.4.0)
+
+The M3 **translation** is implemented in `src/shim.cyr` (dependency-free): the
+event vocabulary + per-ABI encoders that turn compositor input / resize /
+lifecycle events into the swallow-ABI byte wire, verified byte-for-byte. The
+`MehmanAbi` enum is the per-foreign-ABI extension point.
+
+- **Live delivery is deferred** (the gated half): a kavach PROCESS-backend guest
+  is one-shot (no live stdin), so there is no running guest to stream the encoded
+  events to yet. M3's acceptance ("a guest receives input and resizes correctly")
+  lands with a persistent-guest execution model (a kavach change). See
+  [ADR 0005](../adr/0005-m3-shim-event-wire-and-deferred-delivery.md).
+
 ## Tests
 
 - `tests/mehman.tcyr` — primary suite: smoke + foundation validation (error
   namespace, capability contract incl. rejection paths, guest-spec validation) +
   M1 host (spec rejection pre-init; real run+reap of `/bin/true`/`/bin/false`) +
   M2 surface descriptor + `surface_blit_bytes` + the M2 capture handoff (real
-  `/bin/echo` output captured into a surface buffer). **58 asserts, all passing**
+  `/bin/echo` output captured into a surface buffer) + M3 event translation
+  (per-ABI input/resize/lifecycle wire, byte-checked). **80 asserts, all passing**
   on `cyrius test`.
 - `tests/mehman.bcyr` — benchmark stub (no-op)
 - `tests/mehman.fcyr` — fuzz stub

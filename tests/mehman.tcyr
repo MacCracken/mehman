@@ -127,6 +127,39 @@ fn main() {
     # capture rejects an invalid surface before touching kavach
     assert_eq(mehman_sandbox_capture_guest(guest_spec_new("/bin/true", caps_swallow_default()), 0, 0), MehmanError.INVALID_SPEC, "capture rejects null surface");
 
+    # ----- shim.cyr — M3 event translation (compositor → guest wire) -----
+    test_group("shim.cyr — M3 per-ABI event translation");
+    var wire = alloc(16);
+    # key: HID_ESC (0x29) pressed → [0x01, 0x29, 1]
+    var ke = shim_input_key(0x29, 1);
+    assert_neq(ke, 0, "key event allocates");
+    assert_eq(MehmanInputEvent_kind(ke), MehmanInputKind.INPUT_KEY, "input kind = KEY");
+    assert_eq(shim_encode_input(MehmanAbi.ABI_SWALLOW, ke, wire), 3, "key encodes to 3 bytes");
+    assert_eq(load8(wire + 0), 0x01, "key wire tag");
+    assert_eq(load8(wire + 1), 0x29, "key code = HID_ESC");
+    assert_eq(load8(wire + 2), 1, "key pressed");
+    # pointer motion (300, 200) → [0x03, x:u16 LE, y:u16 LE]
+    var pm = shim_input_pointer_motion(300, 200);
+    assert_eq(shim_encode_input(MehmanAbi.ABI_SWALLOW, pm, wire), 5, "motion encodes to 5 bytes");
+    assert_eq(load8(wire + 0), 0x03, "motion wire tag");
+    assert_eq(load8(wire + 1), 44, "motion x lo (300 & 0xFF)");
+    assert_eq(load8(wire + 2), 1, "motion x hi (300 >> 8)");
+    assert_eq(load8(wire + 3), 200, "motion y lo");
+    assert_eq(load8(wire + 4), 0, "motion y hi");
+    # resize (800, 600) → [0x10, w:u16 LE, h:u16 LE]
+    assert_eq(shim_encode_resize(MehmanAbi.ABI_SWALLOW, 800, 600, wire), 5, "resize encodes to 5 bytes");
+    assert_eq(load8(wire + 0), 0x10, "resize wire tag");
+    assert_eq(load8(wire + 1), 32, "resize w lo (800 & 0xFF)");
+    assert_eq(load8(wire + 2), 3, "resize w hi");
+    assert_eq(load8(wire + 3), 88, "resize h lo (600 & 0xFF)");
+    # lifecycle CLOSE → [0x20, 4]
+    assert_eq(shim_encode_lifecycle(MehmanAbi.ABI_SWALLOW, MehmanLifecycle.LIFECYCLE_CLOSE, wire), 2, "lifecycle encodes to 2 bytes");
+    assert_eq(load8(wire + 0), 0x20, "lifecycle wire tag");
+    assert_eq(load8(wire + 1), 4, "lifecycle = CLOSE (4)");
+    # unsupported ABI / null event encode nothing
+    assert_eq(shim_encode_input(99, ke, wire), 0, "unknown ABI encodes 0 bytes");
+    assert_eq(shim_encode_input(MehmanAbi.ABI_SWALLOW, 0, wire), 0, "null event encodes 0 bytes");
+
     return assert_summary();
 }
 

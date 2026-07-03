@@ -80,6 +80,16 @@ buffer aethersafha's `foreign.cyr` backs a window with; 58-assert suite green).
 between the compositor and the guest. Acceptance: a guest receives input and
 resizes correctly.
 
+> **Foundation landed (unreleased, toward v0.4.0)**: `src/shim.cyr` defines the
+> event vocabulary (`MehmanInputEvent`/`MehmanInputKind`, `MehmanLifecycle`,
+> `MehmanAbi`) and the per-ABI **translation** — `shim_encode_input` /
+> `shim_encode_resize` / `shim_encode_lifecycle` encode events into the
+> swallow-ABI byte wire (byte-tested). Dependency-free; grounded in aethersafha's
+> HID/window model. **Live delivery is deferred** (a kavach PROCESS guest is
+> one-shot — no live stdin), so the acceptance ("guest receives input + resizes")
+> lands with a persistent-guest model. See
+> [ADR 0005](../adr/0005-m3-shim-event-wire-and-deferred-delivery.md).
+
 ### M4 — Guest lifecycle (v0.5.0)
 
 `src/guest.cyr` — spawn / map / evict orchestration folded into the single
