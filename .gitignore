@@ -1,4 +1,9 @@
 /build/
+# Resolved deps — `cyrius deps` populates lib/ from cyrius.cyml [deps] stdlib +
+# [deps.kavach] / [deps.sigil]. Reproducible from the toolchain pin + the tracked
+# cyrius.lock, so lib/ is not committed (matches kavach/sigil/patra). CI runs
+# `cyrius deps` before every build.
+/lib/
 *.core
 .claude/
 .idea/

@@ -76,6 +76,28 @@ fn main() {
     assert_eq(mehman_sandbox_run_guest(guest_spec_new("/bin/false", caps_swallow_default()), code_slot), MehmanError.OK, "second foreign binary runs + reaps clean");
     assert_eq(load64(code_slot), 0, "kavach reports capture-success, not guest WEXITSTATUS");
 
+    # ----- surface.cyr — M2 surface descriptor foundation ---------------
+    test_group("surface.cyr — M2 foreign-surface descriptor");
+    assert_eq(mehman_format_bpp(MehmanPixelFormat.XRGB8888), 4, "XRGB8888 is 4 bpp");
+    assert_eq(mehman_format_bpp(99), 0, "unknown format has 0 bpp");
+    # stand-in for the captured pixel buffer (the shared-memory handoff is deferred)
+    var pixbuf = alloc(64);
+    var surf = surface_new(4, 3, MehmanPixelFormat.XRGB8888, 16, pixbuf);  # stride 16 = 4px * 4bpp
+    assert_neq(surf, 0, "surface allocates");
+    assert_eq(MehmanSurface_width(surf), 4, "width round-trips");
+    assert_eq(MehmanSurface_height(surf), 3, "height round-trips");
+    assert_eq(MehmanSurface_stride(surf), 16, "stride round-trips");
+    assert_eq(surface_is_valid(surf), 1, "well-formed XRGB8888 surface is valid");
+    assert_eq(surface_size_bytes(surf), 48, "size = stride * height");
+    # rejection paths
+    assert_eq(surface_is_valid(0), 0, "null surface invalid");
+    assert_eq(surface_is_valid(surface_new(0, 3, MehmanPixelFormat.XRGB8888, 16, pixbuf)), 0, "zero width rejected");
+    assert_eq(surface_is_valid(surface_new(4, 0, MehmanPixelFormat.XRGB8888, 16, pixbuf)), 0, "zero height rejected");
+    assert_eq(surface_is_valid(surface_new(20000, 3, MehmanPixelFormat.XRGB8888, 80000, pixbuf)), 0, "oversized dimension rejected");
+    assert_eq(surface_is_valid(surface_new(4, 3, 99, 16, pixbuf)), 0, "unknown format rejected");
+    assert_eq(surface_is_valid(surface_new(4, 3, MehmanPixelFormat.XRGB8888, 8, pixbuf)), 0, "stride < width*bpp rejected");
+    assert_eq(surface_is_valid(surface_new(4, 3, MehmanPixelFormat.XRGB8888, 16, 0)), 0, "null buffer rejected");
+
     return assert_summary();
 }
 

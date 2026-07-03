@@ -19,8 +19,8 @@ aethersafha.
 ## Source
 
 - `src/main.cyr` — library header / module-include chain: `src/types.cyr` →
-  `lib/kavach.cyr` (dist bundle) → `src/sandbox.cyr`. Retains the
-  `mehman_scaffold_ok` sentinel (removed at M4).
+  `lib/kavach.cyr` (dist bundle) → `src/sandbox.cyr` → `src/surface.cyr`. Retains
+  the `mehman_scaffold_ok` sentinel (removed at M4).
 - `src/types.cyr` — **foundation vocabulary** (dependency-free):
   - `MehmanError` enum + `mehman_err_name` / `mehman_err_print`.
   - `MehmanCaps` (bounded capability set) + `caps_swallow_default` /
@@ -33,6 +33,11 @@ aethersafha.
   (`kavach_init` → `config_new` → `config_backend(PROCESS)` → `sandbox_create` →
   `sandbox_transition(RUNNING)` → `sandbox_exec` → `sandbox_destroy`), mapping
   kavach failures onto `MehmanError`.
+- `src/surface.cyr` — **M2 foundation** (dependency-free): the `MehmanSurface`
+  descriptor (width / height / format / stride / buffer) + `MehmanPixelFormat`
+  (XRGB8888) + `surface_new` / `surface_is_valid` / `mehman_format_bpp` /
+  `surface_size_bytes`. The producer-side surface contract aethersafha imports,
+  value-aligned with bhumi's XRGB8888 pixel model.
 
 ## M1 status — shipped (v0.2.0)
 
@@ -54,12 +59,28 @@ as a Cyrius library — is resolved). See
   exercise; ~13 MB static scan tables (`CYRIUS_DCE=1` drops the unreachable
   surface).
 
+## M2 status — foundation landed, capture/handoff gated
+
+`src/surface.cyr` defines the `MehmanSurface` descriptor (the producer-side
+contract aethersafha imports) and its validation, dependency-free and shipped as
+unreleased groundwork toward v0.3.0. The two gated halves are **deferred**:
+
+- **Buffer capture** — a kavach PROCESS-backend guest produces stdout, not a
+  framebuffer; there is no foreign-guest-renders-a-surface path yet.
+- **aethersafha handoff** — aethersafha exists (0.1.0) but its `cyrius.cyml`
+  defers consuming mehman ("Bite G", post-MVP) and exposes no surface-import API
+  yet.
+
+The descriptor is value-aligned with bhumi's XRGB8888 pixel model, so no format
+remap is needed once the handoff lands.
+
 ## Tests
 
 - `tests/mehman.tcyr` — primary suite: smoke + foundation validation (error
   namespace, capability contract incl. rejection paths, guest-spec validation) +
-  M1 host (spec rejection pre-init; real run+reap of `/bin/true`/`/bin/false`).
-  **28 asserts, all passing** on `cyrius test`.
+  M1 host (spec rejection pre-init; real run+reap of `/bin/true`/`/bin/false`) +
+  M2 surface descriptor (format bpp, round-trip, validity + rejection paths).
+  **43 asserts, all passing** on `cyrius test`.
 - `tests/mehman.bcyr` — benchmark stub (no-op)
 - `tests/mehman.fcyr` — fuzz stub
 
