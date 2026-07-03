@@ -5,12 +5,12 @@
 
 ## Version
 
-**0.4.0** — cut 2026-07-03. Milestone **M3 protocol shim (foundation) + M4 guest
-lifecycle** — the compositor↔guest seam: per-ABI event translation (`src/shim.cyr`;
-live delivery deferred) and the `MehmanGuest` spawn / map / run / evict lifecycle
-(`src/guest.cyr`), which retires the scaffold sentinel. Roadmap milestones **M1–M4
-are all in**. Builds on **0.3.1** (pin → 6.3.40) / **0.3.0** (M2 capture) /
-**0.2.0** (M1 host) / **0.1.0** (scaffold + foundation). Consumed by aethersafha.
+**0.5.0** — cut 2026-07-03. **Hardening toward v1.0**: real benchmarks captured
+(`docs/benchmarks.md`) and the kavach dependency aligned to **3.6.1**. No
+swallow-stage API change — the roadmap **M1–M4 surface is stable** (M3 shim
+foundation + M4 guest lifecycle landed in 0.4.0), and the downstream consumer
+(aethersafha) is green. Builds on **0.4.0** (M3+M4) / **0.3.1** (pin → 6.3.40) /
+**0.3.0** (M2 capture) / **0.2.0** (M1 host) / **0.1.0** (scaffold + foundation).
 
 ## Toolchain
 

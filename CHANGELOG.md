@@ -4,6 +4,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-07-03
+
+Hardening toward v1.0: real benchmarks of the swallow-stage compute hot paths
+(satisfying the "benchmarks captured" v1.0 criterion) and the kavach dependency
+aligned to 3.6.1. No swallow-stage API change — the M1–M4 surface is stable, and
+the downstream consumer (aethersafha) is green.
+
 ### Added
 - `docs/benchmarks.md` + a real `tests/mehman.bcyr` — benchmarks of the
   swallow-stage compute hot paths (surface capture blit ~666 MiB/s; M3 event
