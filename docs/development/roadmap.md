@@ -48,22 +48,23 @@ kavach's PROCESS backend; 28-assert suite green).
 > PROCESS backend does not propagate the guest's `WEXITSTATUS`; M1 surfaces a
 > coarse exec status only.
 
-### M2 — Foreign-surface capture (v0.3.0)
+### M2 — Foreign-surface capture (v0.3.0) — ✅ shipped 2026-07-03
 
-`src/surface.cyr` — import the guest's rendered buffer (shared-memory handoff)
-and expose it to the compositor as a native surface via aethersafha.
-Acceptance: a foreign app's framebuffer appears as a compositor surface.
-**Dep gate**: aethersafha surface-import API; bhumi presenting.
+`src/surface.cyr` + `src/sandbox.cyr` — run the guest and capture its rendered
+buffer, exposed to the compositor as a native surface via aethersafha.
+Acceptance: a foreign app's output reaches a compositor-hosted surface — ✅ met
+(`mehman_sandbox_capture_guest` captures `/bin/echo` output into the surface
+buffer aethersafha's `foreign.cyr` backs a window with; 58-assert suite green).
 
-> **Capture landed (unreleased, toward v0.3.0)**: the M2 handoff —
+> **Shipped v0.3.0 (2026-07-03)**: the M2 handoff —
 > `mehman_sandbox_capture_guest(spec, surface, out_exit_code)` — runs a foreign
 > guest under the kavach PROCESS sandbox and captures its output into the surface
-> buffer (`surface_blit_bytes`); verified end-to-end (`/bin/echo` → surface bytes).
-> aethersafha 0.4.0 has the compositor side (`foreign.cyr`: guest spec + surface +
-> hosted window + `foreign_run`) and now wires `foreign_run` to this capture.
-> **Capture model is stdout-as-framebuffer** (MVP seam — see
-> [ADR 0004](../adr/0004-m2-surface-capture-stdout-as-framebuffer.md)); real pixel
-> fidelity (shared-memory handoff or an M3 shim) is the follow-on.
+> buffer (`surface_blit_bytes`). aethersafha 0.4.0 has the compositor side
+> (`foreign.cyr`: guest spec + surface + hosted window + `foreign_run`) and wires
+> `foreign_run` to this capture. mehman's surface/type contract is also consumable
+> standalone (kavach feature-gated, [ADR 0003](../adr/0003-feature-gate-kavach-for-standalone-surface-consumption.md)).
+> **Capture model is stdout-as-framebuffer** (MVP seam — [ADR 0004](../adr/0004-m2-surface-capture-stdout-as-framebuffer.md));
+> real pixel fidelity (shared-memory handoff or an M3 shim) is the follow-on.
 >
 > **Foundation shipped in v0.2.1 (2026-07-03)**: `src/surface.cyr` defines the
 > producer-side `MehmanSurface` descriptor (`MehmanPixelFormat.XRGB8888`,

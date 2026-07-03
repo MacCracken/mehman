@@ -4,6 +4,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-07-03
+
+Milestone **M2 — foreign-surface capture**. mehman runs a foreign guest under a
+kavach sandbox and captures its surface into the compositor's buffer — the swallow
+handoff — and its surface/type contract is now consumable standalone (kavach
+feature-gated). aethersafha 0.4.0 hosts foreign apps on this seam.
+
 ### Added
 - **M2 handoff** — `mehman_sandbox_capture_guest(spec, surface, out_exit_code)`
   (`src/sandbox.cyr`): runs a foreign guest under the kavach PROCESS sandbox **and

@@ -5,11 +5,12 @@
 
 ## Version
 
-**0.2.1** — cut 2026-07-03. Adds the **M2 foundation** (`src/surface.cyr`, the
-dep-free surface descriptor) plus a build-hygiene change (stop committing
-`lib/`). Builds on **0.2.0** (M1 — sandboxed foreign host, kavach 3.6.0) and
-**0.1.0** (scaffold + foundation vocabulary). The full M2 milestone (buffer
-capture + aethersafha handoff) remains v0.3.0, gated on aethersafha.
+**0.3.0** — cut 2026-07-03. Milestone **M2 — foreign-surface capture**: mehman
+runs a foreign guest and captures its surface into the compositor's buffer
+(`mehman_sandbox_capture_guest`), and its surface/type contract is consumable
+standalone (kavach feature-gated). Builds on **0.2.1** (M2 foundation — the
+surface descriptor), **0.2.0** (M1 — sandboxed foreign host, kavach 3.6.0), and
+**0.1.0** (scaffold + foundation vocabulary). Consumed by aethersafha 0.4.0.
 
 ## Toolchain
 
@@ -62,7 +63,7 @@ as a Cyrius library — is resolved). See
   exercise; ~13 MB static scan tables (`CYRIUS_DCE=1` drops the unreachable
   surface).
 
-## M2 status — capture landed (unreleased, toward v0.3.0)
+## M2 status — shipped (v0.3.0)
 
 The M2 handoff is implemented: `mehman_sandbox_capture_guest(spec, surface,
 out_exit_code)` (`src/sandbox.cyr`) runs a foreign guest under the kavach PROCESS
