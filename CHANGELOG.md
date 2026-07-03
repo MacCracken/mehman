@@ -4,6 +4,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-07-03
+
+Milestone **M3 protocol shim (foundation) + M4 guest lifecycle** — the swallow
+stage's compositor↔guest seam. M3's event *translation* lands (a per-ABI wire;
+live delivery deferred), and M4's `MehmanGuest` lifecycle (spawn / map / run /
+evict) becomes mehman's real public surface, retiring the scaffold sentinel. With
+this, roadmap milestones M1–M4 are all in.
+
 ### Added
 - **M4 — guest lifecycle** (`src/guest.cyr`): `MehmanGuest`, the single backend
   handle the compositor drives — `guest_spawn` (spec + surface + ABI), `guest_map`,

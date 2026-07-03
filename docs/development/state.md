@@ -5,13 +5,12 @@
 
 ## Version
 
-**0.3.1** — cut 2026-07-03. Toolchain pin bump to 6.3.40 (ecosystem alignment) on
-top of **0.3.0** — Milestone **M2 — foreign-surface capture**: mehman runs a
-foreign guest and captures its surface into the compositor's buffer
-(`mehman_sandbox_capture_guest`), and its surface/type contract is consumable
-standalone (kavach feature-gated). Builds on **0.2.1** (M2 foundation — the
-surface descriptor), **0.2.0** (M1 — sandboxed foreign host, kavach 3.6.0), and
-**0.1.0** (scaffold + foundation vocabulary). Consumed by aethersafha 0.4.0.
+**0.4.0** — cut 2026-07-03. Milestone **M3 protocol shim (foundation) + M4 guest
+lifecycle** — the compositor↔guest seam: per-ABI event translation (`src/shim.cyr`;
+live delivery deferred) and the `MehmanGuest` spawn / map / run / evict lifecycle
+(`src/guest.cyr`), which retires the scaffold sentinel. Roadmap milestones **M1–M4
+are all in**. Builds on **0.3.1** (pin → 6.3.40) / **0.3.0** (M2 capture) /
+**0.2.0** (M1 host) / **0.1.0** (scaffold + foundation). Consumed by aethersafha.
 
 ## Toolchain
 
@@ -96,7 +95,7 @@ window with live guest content.
 - The descriptor + format stay value-aligned with bhumi's XRGB8888 model, so no
   remap on handoff.
 
-## M3 status — foundation landed (unreleased, toward v0.4.0)
+## M3 status — foundation shipped (v0.4.0)
 
 The M3 **translation** is implemented in `src/shim.cyr` (dependency-free): the
 event vocabulary + per-ABI encoders that turn compositor input / resize /
@@ -109,7 +108,7 @@ lifecycle events into the swallow-ABI byte wire, verified byte-for-byte. The
   lands with a persistent-guest execution model (a kavach change). See
   [ADR 0005](../adr/0005-m3-shim-event-wire-and-deferred-delivery.md).
 
-## M4 status — landed (unreleased, toward v0.5.0)
+## M4 status — shipped (v0.4.0)
 
 M4 **acceptance is met**: a guest is launched and evicted under compositor
 control. `src/guest.cyr`'s `MehmanGuest` bundles the spec (M1) + surface (M2) +

@@ -74,13 +74,13 @@ buffer aethersafha's `foreign.cyr` backs a window with; 58-assert suite green).
 > foreign-render path yet) and the **aethersafha handoff** (aethersafha 0.1.0
 > defers consuming mehman — "Bite G", post-MVP — with no surface-import API yet).
 
-### M3 — Protocol shim (v0.4.0)
+### M3 — Protocol shim (v0.4.0) — ✅ foundation shipped 2026-07-03
 
 `src/shim.cyr` — per-foreign-ABI translation of input/resize/lifecycle events
 between the compositor and the guest. Acceptance: a guest receives input and
 resizes correctly.
 
-> **Foundation landed (unreleased, toward v0.4.0)**: `src/shim.cyr` defines the
+> **Foundation shipped in v0.4.0 (2026-07-03)**: `src/shim.cyr` defines the
 > event vocabulary (`MehmanInputEvent`/`MehmanInputKind`, `MehmanLifecycle`,
 > `MehmanAbi`) and the per-ABI **translation** — `shim_encode_input` /
 > `shim_encode_resize` / `shim_encode_lifecycle` encode events into the
@@ -90,14 +90,15 @@ resizes correctly.
 > lands with a persistent-guest model. See
 > [ADR 0005](../adr/0005-m3-shim-event-wire-and-deferred-delivery.md).
 
-### M4 — Guest lifecycle (v0.5.0)
+### M4 — Guest lifecycle (v0.5.0) — ✅ shipped 2026-07-03 (in v0.4.0)
 
 `src/guest.cyr` — spawn / map / evict orchestration folded into the single
 backend handle aethersafha drives. Acceptance: guests can be launched and
 evicted under compositor control (first downstream consumer green). Removes the
 `mehman_scaffold_ok` sentinel.
 
-> **Landed (unreleased, toward v0.5.0)**: `src/guest.cyr` — `MehmanGuest` bundles
+> **Shipped in v0.4.0 (2026-07-03)** — ahead of its planned v0.5.0 slot:
+> `src/guest.cyr` — `MehmanGuest` bundles
 > the spec (M1) + surface (M2) + ABI (M3) behind `guest_spawn` / `guest_map` /
 > `guest_run` (launch under kavach + capture) / `guest_evict`, a
 > `CREATED → MAPPED → RUNNING → EVICTED` state machine. **Acceptance met**: a guest
