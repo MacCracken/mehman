@@ -4,6 +4,20 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- **Feature-gate kavach** — migrated to cyrius dependency-model lever 2 (v6.3.1):
+  `[deps.kavach]` is now `optional = true` behind a default-on `sandbox` feature
+  (`[features] default = ["sandbox"]`, `sandbox = ["kavach"]`). mehman's own build
+  and tests keep the sandbox host; a **consumer** of the surface/type contract
+  (e.g. aethersafha) builds without enabling `sandbox` and gets **no kavach →
+  sandhi → TLS cascade**. Verified: a clean-room consumer resolves to 21 lib files
+  (no kavach/sigil/sandhi/tls/thread_local/async) and builds + runs against
+  `MehmanSurface`. Removes aethersafha's documented "Bite G" blocker. See
+  [ADR 0003](docs/adr/0003-feature-gate-kavach-for-standalone-surface-consumption.md).
+- CI / release: run `cyrius lib sync --full` before `cyrius deps` (the gitignored
+  `lib/` must be re-vendored from the pin; newer toolchains no longer auto-vendor
+  stdlib on bare `cyrius deps`).
+
 ## [0.2.1] — 2026-07-03
 
 M2 **foundation** (the dep-free surface descriptor) plus a build-hygiene change.

@@ -89,19 +89,25 @@ remap is needed once the handoff lands.
 
 Direct (declared in `cyrius.cyml`):
 
-- **kavach 3.6.0** — sandbox-execution surface, consumed as `dist/kavach.cyr`
-  via `[deps.kavach]` (git + `../kavach` path). Pulls transitive **sigil** (and
-  its sandhi/sakshi) through kavach's own `[deps.sigil]`.
-- stdlib — expanded to kavach's full transitive set (required to link the
-  bundle): alloc, assert, async, bayan, bench, chrono, ct, dynlib, fdlopen, fmt,
-  fnptr, freelist, fs, hashmap, hashmap_fast, io, keccak, mmap, net, process,
-  random, result, sandhi, slice, str, string, syscalls, tagged, thread,
-  thread_local, tls, vec.
+- **kavach 3.6.0** — sandbox-execution surface, **`optional = true`** behind the
+  default-on `sandbox` feature (cyrius dependency-model lever 2). Consumed as
+  `dist/kavach.cyr` via `[deps.kavach]` (git + `../kavach` path); pulls transitive
+  **sigil** through kavach's own `[deps.sigil]`. A downstream consumer that does
+  not enable `sandbox` skips it entirely (no kavach → sandhi → TLS cascade).
+- stdlib — mehman's own default-build set (kavach's transitive union). This is
+  mehman's build concern only; **consumers declare their own** (light) stdlib.
+- `lib/` is gitignored: `cyrius lib sync --full` (pinned snapshot) + `cyrius deps`
+  regenerate it. The no-kavach consumer path is verified by a clean-room consumer
+  (see [ADR 0003](../adr/0003-feature-gate-kavach-for-standalone-surface-consumption.md)).
 
 ## Consumers
 
-Intended: **aethersafha** (compositor) — sources foreign-app surfaces from
-mehman. None wired yet (post-MVP / swallow stage; `bhumi` ships first).
+Intended: **aethersafha** (compositor) — sources foreign-app surfaces from mehman.
+As of the feature-gate migration (see [ADR 0003](../adr/0003-feature-gate-kavach-for-standalone-surface-consumption.md)),
+aethersafha **can** consume mehman's surface/type contract (`src/types.cyr` +
+`src/surface.cyr`) with a light footprint and no kavach cascade — verified by a
+clean-room consumer. Not yet wired on aethersafha's side (its "Bite G"): it still
+lacks a surface-import API, and a guest producing pixels (not stdout) is absent.
 
 ## Next
 

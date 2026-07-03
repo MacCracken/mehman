@@ -14,12 +14,11 @@ output = "build/mehman-smoke"
 modules = ["src/main.cyr"]
 
 [deps]
-# mehman's own stdlib (assert/bench for tests + benches) unioned with kavach's
-# transitive stdlib — REQUIRED to link the kavach dist bundle. Its
-# dist/kavach.deps sidecar lists only kavach's *direct* leaves; a consumer that
-# omits the full transitive set fails to LINK (undefined thread_local_* /
-# sandhi_server_* / async_* / TLS_BACKEND_LIBSSL). Mirrors kavach's own
-# [deps].stdlib. See kavach README "Consume kavach as a library".
+# mehman's own stdlib for a DEFAULT (sandbox-on) build: the dep-free base plus
+# kavach's transitive set (needed to link the kavach dist bundle). This list is
+# mehman's OWN build concern only — stdlib is consumer-declared, so a downstream
+# project that consumes mehman does NOT inherit it; it declares its own (light)
+# stdlib. The consumer-decoupling comes from the optional `kavach` dep below.
 stdlib = [
     "alloc", "assert", "async", "bayan", "bench", "chrono", "ct", "dynlib",
     "fdlopen", "fmt", "fnptr", "freelist", "fs", "hashmap", "hashmap_fast",
@@ -28,11 +27,25 @@ stdlib = [
     "tls", "vec",
 ]
 
+# Feature gating — cyrius dependency-model lever 2 (v6.3.1: `optional` +
+# `[features]`). The M1 sandbox host (`src/sandbox.cyr` → kavach) sits behind the
+# default-on `sandbox` feature. mehman's own build/tests keep it (default active).
+# A CONSUMER of mehman's surface/types (e.g. aethersafha) builds WITHOUT it:
+# transitive `[features]` tables are not parsed, so the optional `kavach` dep
+# stays inactive for the consumer — no clone, no module copy, so the kavach →
+# sandhi → TLS *bundle* never lands in the consumer. mehman itself can opt out
+# with `cyrius build --no-default-features` (see programs/surface_smoke.cyr).
+[features]
+default = ["sandbox"]
+sandbox = ["kavach"]
+
 # kavach 3.6.0 — the sandbox-execution surface M1 drives. Consumed as the
 # committed single-file dist bundle (materialized into lib/kavach.cyr by
-# `cyrius deps`); source-included via src/main.cyr's chain. See ADR 0001.
+# `cyrius deps`); source-included via src/main.cyr's chain. See ADR 0001/0002/0003.
+# OPTIONAL, activated by the `sandbox` feature — skipped entirely when off.
 [deps.kavach]
-git     = "https://github.com/MacCracken/kavach.git"
-path    = "../kavach"
-tag     = "3.6.0"
-modules = ["dist/kavach.cyr"]
+git      = "https://github.com/MacCracken/kavach.git"
+path     = "../kavach"
+tag      = "3.6.0"
+modules  = ["dist/kavach.cyr"]
+optional = true

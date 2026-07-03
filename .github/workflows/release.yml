@@ -46,6 +46,11 @@ jobs:
             CYRIUS_VERSION="$CYRIUS_VERSION" sh
           echo "$HOME/.cyrius/bin" >> "$GITHUB_PATH"
 
+      - name: Vendor stdlib snapshot
+        # lib/ is gitignored (regenerated from the pin); vendor the pinned
+        # stdlib snapshot before resolving deps.
+        run: cyrius lib sync --full
+
       - name: Resolve dependencies
         run: cyrius deps
 

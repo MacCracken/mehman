@@ -26,12 +26,37 @@ mehman is **post-MVP** (the swallow stage). It is scaffolded now so the composit
 
 ## Build
 
+`lib/` is gitignored and regenerated from the pinned toolchain:
+
 ```sh
-cyrius deps                                         # resolve stdlib deps
-cyrius build programs/smoke.cyr build/mehman-smoke   # compile-link smoke
-cyrius distlib                                      # produce dist/mehman.cyr
-cyrius test                                         # run tests/*.tcyr
+cyrius lib sync --full                               # vendor the pinned stdlib snapshot
+cyrius deps                                          # resolve [deps.*] (kavach, via the sandbox feature)
+cyrius build programs/smoke.cyr build/mehman-smoke   # compile-link the smoke
+cyrius test                                          # run tests/*.tcyr
 ```
+
+## Consume mehman's surface contract (no kavach)
+
+The sandbox host (`src/sandbox.cyr` → kavach) sits behind a default-on `sandbox`
+feature, so a compositor can consume mehman's dependency-free surface/type contract
+**without** pulling the kavach → sandhi → TLS cascade. In the consumer's
+`cyrius.cyml`:
+
+```toml
+[deps]
+stdlib = ["string", "fmt", "alloc", "io", "vec", "str", "syscalls"]  # your own light set
+
+[deps.mehman]
+git     = "https://github.com/MacCracken/mehman.git"
+path    = "../mehman"
+modules = ["src/types.cyr", "src/surface.cyr"]   # surface contract only — no sandbox
+```
+
+Do **not** enable mehman's `sandbox` feature (transitive `[features]` are not
+parsed, so it stays off by default). `cyrius deps` then materializes
+`lib/mehman_types.cyr` + `lib/mehman_surface.cyr` and skips kavach entirely. Use
+`MehmanSurface` / `MehmanPixelFormat` + the validators; the pixel format is
+value-aligned with bhumi's `BHUMI_FMT_XRGB8888`, so no remap on handoff.
 
 ## License
 
