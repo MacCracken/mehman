@@ -22,7 +22,8 @@ surface descriptor), **0.2.0** (M1 — sandboxed foreign host, kavach 3.6.0), an
 
 - `src/main.cyr` — library header / module-include chain: `src/types.cyr` →
   `lib/kavach.cyr` (dist bundle) → `src/sandbox.cyr` → `src/surface.cyr` →
-  `src/shim.cyr`. Retains the `mehman_scaffold_ok` sentinel (removed at M4).
+  `src/shim.cyr` → `src/guest.cyr`. The `mehman_scaffold_ok` sentinel is **retired**
+  (guest.cyr is the real public surface).
 - `src/types.cyr` — **foundation vocabulary** (dependency-free):
   - `MehmanError` enum + `mehman_err_name` / `mehman_err_print`.
   - `MehmanCaps` (bounded capability set) + `caps_swallow_default` /
@@ -49,6 +50,11 @@ surface descriptor), **0.2.0** (M1 — sandboxed foreign host, kavach 3.6.0), an
   `shim_encode_lifecycle` (translate events → the swallow-ABI byte wire) +
   `shim_input_key` / `shim_input_pointer_button` / `shim_input_pointer_motion`.
   Live delivery to a running guest is deferred (one-shot exec) — see M3 status.
+- `src/guest.cyr` — **M4 guest lifecycle**: `MehmanGuest`, the single backend
+  handle the compositor drives — `guest_spawn` (spec + surface + ABI) / `guest_map`
+  / `guest_run` (launch under kavach + capture) / `guest_evict`, over a
+  CREATED → MAPPED → RUNNING → EVICTED state machine (+ accessors). The real public
+  surface (retires the sentinel). Rides the `sandbox` feature (`guest_run` → kavach).
 
 ## M1 status — shipped (v0.2.0)
 
@@ -103,6 +109,18 @@ lifecycle events into the swallow-ABI byte wire, verified byte-for-byte. The
   lands with a persistent-guest execution model (a kavach change). See
   [ADR 0005](../adr/0005-m3-shim-event-wire-and-deferred-delivery.md).
 
+## M4 status — landed (unreleased, toward v0.5.0)
+
+M4 **acceptance is met**: a guest is launched and evicted under compositor
+control. `src/guest.cyr`'s `MehmanGuest` bundles the spec (M1) + surface (M2) +
+ABI (M3) behind `guest_spawn` → `guest_map` → `guest_run` (launch under kavach +
+capture) → `guest_evict`, a `CREATED → MAPPED → RUNNING → EVICTED` state machine.
+Verified: `/bin/echo` spawned, run+captured into its surface, and evicted; an
+evicted guest rejects further map/run. This is mehman's real public surface — the
+`mehman_scaffold_ok` sentinel is retired. aethersafha can drive a `MehmanGuest`
+per hosted foreign app (its `src/foreign.cyr` currently orchestrates the same
+pieces directly; adopting the handle is a follow-on).
+
 ## Tests
 
 - `tests/mehman.tcyr` — primary suite: smoke + foundation validation (error
@@ -110,8 +128,9 @@ lifecycle events into the swallow-ABI byte wire, verified byte-for-byte. The
   M1 host (spec rejection pre-init; real run+reap of `/bin/true`/`/bin/false`) +
   M2 surface descriptor + `surface_blit_bytes` + the M2 capture handoff (real
   `/bin/echo` output captured into a surface buffer) + M3 event translation
-  (per-ABI input/resize/lifecycle wire, byte-checked). **80 asserts, all passing**
-  on `cyrius test`.
+  (per-ABI input/resize/lifecycle wire, byte-checked) + M4 guest lifecycle
+  (spawn/map/run/evict state machine, real launch+capture+evict). **96 asserts,
+  all passing** on `cyrius test`.
 - `tests/mehman.bcyr` — benchmark stub (no-op)
 - `tests/mehman.fcyr` — fuzz stub
 

@@ -1,0 +1,93 @@
+# mehman — M4 guest lifecycle
+#
+# The single backend handle the compositor drives. A MehmanGuest bundles the
+# swallow-stage pieces the earlier milestones built — the guest spec (M1), the
+# foreign surface (M2), and the target ABI (M3) — behind a small lifecycle:
+# spawn → map → run → evict. aethersafha holds one of these per hosted foreign
+# app and drives it under compositor control; this is mehman's real public
+# surface (it retires the scaffold sentinel).
+#
+# Requires the earlier modules in scope (types / surface / shim / sandbox); like
+# sandbox.cyr, `guest_run` uses kavach, so this module rides the `sandbox`
+# feature — the create/map/evict + accessors are otherwise pure state.
+
+# Lifecycle state of a hosted guest.
+enum MehmanGuestState {
+    GUEST_CREATED = 0;   # spawned; no compositor window yet
+    GUEST_MAPPED  = 1;   # the compositor has mapped a window for it
+    GUEST_RUNNING = 2;   # has run at least once (surface captured)
+    GUEST_EVICTED = 3;   # torn down; terminal
+}
+
+# The backend handle. Fields (all i64): spec (MehmanGuestSpec*), surface
+# (MehmanSurface*), abi (MehmanAbi), state (MehmanGuestState), exit_code (last
+# run's kavach exec status, or -1 before the first run).
+#derive(accessors)
+struct MehmanGuest {
+    spec;
+    surface;
+    abi;
+    state;
+    exit_code;
+}
+var MEHMAN_GUEST_SIZE = 40;   # 5 fields x 8 bytes
+
+# guest_spawn(command, w, h): build a swallow-stage guest — its spec (swallow
+# caps: non-native, mediated I/O) + a fresh w×h XRGB8888 surface + the swallow
+# ABI, in the CREATED state. -> MehmanGuest* (0 on an invalid spec/surface or OOM).
+fn guest_spawn(command, w, h) {
+    var spec = guest_spec_new(command, caps_swallow_default());
+    if (guest_spec_is_valid(spec) == 0) { return 0; }
+    var stride = w * mehman_format_bpp(MehmanPixelFormat.XRGB8888);
+    var buffer = alloc(stride * h);
+    if (buffer == 0) { return 0; }
+    var surface = surface_new(w, h, MehmanPixelFormat.XRGB8888, stride, buffer);
+    if (surface_is_valid(surface) == 0) { return 0; }
+    var g = alloc(MEHMAN_GUEST_SIZE);
+    if (g == 0) { return 0; }
+    MehmanGuest_set_spec(g, spec);
+    MehmanGuest_set_surface(g, surface);
+    MehmanGuest_set_abi(g, MehmanAbi.ABI_SWALLOW);
+    MehmanGuest_set_state(g, MehmanGuestState.GUEST_CREATED);
+    MehmanGuest_set_exit_code(g, 0 - 1);
+    return g;
+}
+
+fn guest_spec(g)      { return MehmanGuest_spec(g); }
+fn guest_surface(g)   { return MehmanGuest_surface(g); }
+fn guest_abi(g)       { return MehmanGuest_abi(g); }
+fn guest_state(g)     { return MehmanGuest_state(g); }
+fn guest_exit_code(g) { return MehmanGuest_exit_code(g); }
+
+# guest_map(g): the compositor has mapped a window for this guest. CREATED/MAPPED
+# → MAPPED. -> MehmanError.OK, or INVALID_SPEC for a null or already-evicted guest.
+fn guest_map(g): i64 {
+    if (g == 0) { return MehmanError.INVALID_SPEC; }
+    if (MehmanGuest_state(g) == MehmanGuestState.GUEST_EVICTED) { return MehmanError.INVALID_SPEC; }
+    MehmanGuest_set_state(g, MehmanGuestState.GUEST_MAPPED);
+    return MehmanError.OK;
+}
+
+# guest_run(g): launch the guest under a kavach PROCESS sandbox and capture its
+# surface (the M2 handoff), recording the exec status and, on success,
+# transitioning to RUNNING. -> the MehmanError from the run (INVALID_SPEC for a
+# null or evicted guest, without touching kavach).
+fn guest_run(g): i64 {
+    if (g == 0) { return MehmanError.INVALID_SPEC; }
+    if (MehmanGuest_state(g) == MehmanGuestState.GUEST_EVICTED) { return MehmanError.INVALID_SPEC; }
+    var exit = 0;
+    var r = mehman_sandbox_capture_guest(MehmanGuest_spec(g), MehmanGuest_surface(g), &exit);
+    MehmanGuest_set_exit_code(g, exit);
+    if (r == MehmanError.OK) {
+        MehmanGuest_set_state(g, MehmanGuestState.GUEST_RUNNING);
+    }
+    return r;
+}
+
+# guest_evict(g): tear the guest down. Any state → EVICTED (terminal, idempotent).
+# -> MehmanError.OK, or INVALID_SPEC for a null guest.
+fn guest_evict(g): i64 {
+    if (g == 0) { return MehmanError.INVALID_SPEC; }
+    MehmanGuest_set_state(g, MehmanGuestState.GUEST_EVICTED);
+    return MehmanError.OK;
+}

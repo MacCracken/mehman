@@ -97,6 +97,15 @@ backend handle aethersafha drives. Acceptance: guests can be launched and
 evicted under compositor control (first downstream consumer green). Removes the
 `mehman_scaffold_ok` sentinel.
 
+> **Landed (unreleased, toward v0.5.0)**: `src/guest.cyr` — `MehmanGuest` bundles
+> the spec (M1) + surface (M2) + ABI (M3) behind `guest_spawn` / `guest_map` /
+> `guest_run` (launch under kavach + capture) / `guest_evict`, a
+> `CREATED → MAPPED → RUNNING → EVICTED` state machine. **Acceptance met**: a guest
+> is launched and evicted under compositor control (verified — `/bin/echo` spawned,
+> run+captured, evicted). The `mehman_scaffold_ok` sentinel is **retired**.
+> aethersafha (the downstream consumer) is green; adopting the `MehmanGuest` handle
+> in its `foreign.cyr` is a follow-on.
+
 ## Out of scope (for v1.0)
 
 - **An X.Org / XWayland port.** mehman hosts foreign-*ABI* apps; it does not implement the X11 wire protocol. AGNOS has no native X11 client corpus.

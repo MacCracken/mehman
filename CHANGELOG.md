@@ -5,6 +5,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **M4 — guest lifecycle** (`src/guest.cyr`): `MehmanGuest`, the single backend
+  handle the compositor drives — `guest_spawn` (spec + surface + ABI), `guest_map`,
+  `guest_run` (launch under a kavach PROCESS sandbox + capture the surface),
+  `guest_evict`, over a `CREATED → MAPPED → RUNNING → EVICTED` state machine (+
+  `guest_spec` / `guest_surface` / `guest_state` / `guest_exit_code` accessors).
+  **Acceptance met**: a guest is launched and evicted under compositor control —
+  verified (`/bin/echo` spawned → run+captured → evicted; an evicted guest rejects
+  further map/run). 16 new asserts (96 total).
 - **M3 foundation — protocol shim** (`src/shim.cyr`): the compositor↔guest event
   vocabulary (`MehmanInputEvent` + `MehmanInputKind`, `MehmanLifecycle`,
   `MehmanAbi`) and the per-foreign-ABI **translation** — `shim_encode_input` /
@@ -19,6 +27,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   persistent-guest execution model. M3's acceptance ("a guest receives input and
   resizes correctly") lands with delivery — see
   [ADR 0005](docs/adr/0005-m3-shim-event-wire-and-deferred-delivery.md).
+
+### Removed
+- The `mehman_scaffold_ok` scaffold sentinel — `src/guest.cyr` is now the real
+  public surface, so the library header no longer needs the proof-of-compile stub
+  (the roadmap retires it at M4).
 
 ## [0.3.1] — 2026-07-03
 

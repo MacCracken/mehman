@@ -42,8 +42,7 @@ include "lib/kavach.cyr"       # kavach 3.6.0 sandbox-execution surface (dist bu
 include "src/sandbox.cyr"      # M1: kavach-sandboxed foreign host
 include "src/surface.cyr"      # M2 foundation: foreign-surface descriptor (capture/handoff deferred)
 include "src/shim.cyr"         # M3 foundation: per-foreign-ABI event translation (delivery deferred)
-# include "src/guest.cyr"      # guest lifecycle: spawn / map / evict
+include "src/guest.cyr"        # M4: guest lifecycle — spawn / map / run / evict
 
-# Scaffold sentinel — proves the lib header compiles before any module lands.
-# Removed when src/guest.cyr lands the real public surface.
-fn mehman_scaffold_ok(): i64 { return 1; }
+# The scaffold sentinel (mehman_scaffold_ok) is retired: src/guest.cyr is now the
+# real public surface, so the header no longer needs a proof-of-compile stub.

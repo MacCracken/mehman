@@ -12,7 +12,6 @@ fn main() {
     test_group("smoke");
     assert(1, "true is true");
     assert_eq(1 + 1, 2, "math works");
-    assert_eq(mehman_scaffold_ok(), 1, "scaffold sentinel ok");
 
     # ----- types.cyr — error namespace ----------------------------------
     test_group("types.cyr — error namespace");
@@ -159,6 +158,33 @@ fn main() {
     # unsupported ABI / null event encode nothing
     assert_eq(shim_encode_input(99, ke, wire), 0, "unknown ABI encodes 0 bytes");
     assert_eq(shim_encode_input(MehmanAbi.ABI_SWALLOW, 0, wire), 0, "null event encodes 0 bytes");
+
+    # ----- guest.cyr — M4 guest lifecycle (spawn / map / run / evict) -----
+    test_group("guest.cyr — M4 guest lifecycle");
+    var lg = guest_spawn("/bin/echo M4", 8, 4);
+    assert_neq(lg, 0, "guest_spawn builds a guest");
+    assert_eq(guest_state(lg), MehmanGuestState.GUEST_CREATED, "spawned -> CREATED");
+    assert_eq(guest_spec_is_valid(guest_spec(lg)), 1, "guest carries a valid spec");
+    assert_eq(surface_is_valid(guest_surface(lg)), 1, "guest carries a valid surface");
+    assert_eq(guest_exit_code(lg), 0 - 1, "exit code -1 before first run");
+    # map: the compositor mapped a window
+    assert_eq(guest_map(lg), MehmanError.OK, "map -> OK");
+    assert_eq(guest_state(lg), MehmanGuestState.GUEST_MAPPED, "mapped -> MAPPED");
+    # run: launch the guest + capture its surface
+    assert_eq(guest_run(lg), MehmanError.OK, "run -> OK (launched + captured)");
+    assert_eq(guest_state(lg), MehmanGuestState.GUEST_RUNNING, "ran -> RUNNING");
+    var lgbuf = MehmanSurface_buffer(guest_surface(lg));
+    assert_eq(load8(lgbuf + 0), 77, "captured byte 0 = 'M' (/bin/echo M4)");
+    assert_eq(load8(lgbuf + 1), 52, "captured byte 1 = '4'");
+    # evict: tear down under compositor control
+    assert_eq(guest_evict(lg), MehmanError.OK, "evict -> OK");
+    assert_eq(guest_state(lg), MehmanGuestState.GUEST_EVICTED, "evicted -> EVICTED");
+    # an evicted guest rejects further map/run
+    assert_eq(guest_map(lg), MehmanError.INVALID_SPEC, "map after evict rejected");
+    assert_eq(guest_run(lg), MehmanError.INVALID_SPEC, "run after evict rejected");
+    # spawn rejects a bad command / null guest ops
+    assert_eq(guest_spawn("", 8, 4), 0, "spawn rejects empty command");
+    assert_eq(guest_evict(0), MehmanError.INVALID_SPEC, "evict null guest rejected");
 
     return assert_summary();
 }
