@@ -24,3 +24,4 @@ Decisions about mehman — what we chose, the context, and the consequences we a
 - [0003 — Feature-gate kavach so mehman's surface/types are consumable standalone](0003-feature-gate-kavach-for-standalone-surface-consumption.md) — *Accepted, 2026-07-03*
 - [0004 — M2 surface capture: stdout-as-framebuffer (the swallow-stage MVP)](0004-m2-surface-capture-stdout-as-framebuffer.md) — *Accepted, 2026-07-03*
 - [0005 — M3 protocol shim: a per-ABI event wire, with delivery deferred](0005-m3-shim-event-wire-and-deferred-delivery.md) — *Accepted, 2026-07-03*
+- [0006 — M3 live event delivery via a kavach persistent-guest model](0006-m3-live-delivery-persistent-guest.md) — *Accepted, 2026-07-03 (resolves 0005's deferral)*

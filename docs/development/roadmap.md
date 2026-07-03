@@ -8,13 +8,13 @@
 
 _Define before tagging v0.1.0:_
 
-- [ ] Public API frozen — every exported symbol documented and tested
-- [ ] Test coverage adequate for the surface area
+- [x] Public API frozen — every exported symbol documented ([`docs/api.md`](../api.md)) and tested
+- [x] Test coverage adequate for the surface area — 109 asserts across M1–M4 + delivery
 - [x] Benchmarks captured in `docs/benchmarks.md`
 - [x] At least one downstream consumer green — aethersafha 0.4.0 consumes mehman
       (types / surface / sandbox) and hosts+runs+captures a live foreign guest
-- [ ] CHANGELOG complete from v0.1.0 onward
-- [ ] Security audit pass (`docs/audit/YYYY-MM-DD-audit.md`)
+- [x] CHANGELOG complete from v0.1.0 onward
+- [x] Security audit pass ([`docs/audit/2026-07-03-audit.md`](../audit/2026-07-03-audit.md))
 
 ## Milestones
 
@@ -75,21 +75,25 @@ buffer aethersafha's `foreign.cyr` backs a window with; 58-assert suite green).
 > foreign-render path yet) and the **aethersafha handoff** (aethersafha 0.1.0
 > defers consuming mehman — "Bite G", post-MVP — with no surface-import API yet).
 
-### M3 — Protocol shim (v0.4.0) — ✅ foundation shipped 2026-07-03
+### M3 — Protocol shim (v0.4.0 foundation → v1.0.0 delivery) — ✅ complete 2026-07-03
 
 `src/shim.cyr` — per-foreign-ABI translation of input/resize/lifecycle events
 between the compositor and the guest. Acceptance: a guest receives input and
-resizes correctly.
+resizes correctly — **✅ met**.
 
-> **Foundation shipped in v0.4.0 (2026-07-03)**: `src/shim.cyr` defines the
-> event vocabulary (`MehmanInputEvent`/`MehmanInputKind`, `MehmanLifecycle`,
-> `MehmanAbi`) and the per-ABI **translation** — `shim_encode_input` /
-> `shim_encode_resize` / `shim_encode_lifecycle` encode events into the
-> swallow-ABI byte wire (byte-tested). Dependency-free; grounded in aethersafha's
-> HID/window model. **Live delivery is deferred** (a kavach PROCESS guest is
-> one-shot — no live stdin), so the acceptance ("guest receives input + resizes")
-> lands with a persistent-guest model. See
-> [ADR 0005](../adr/0005-m3-shim-event-wire-and-deferred-delivery.md).
+> **Foundation shipped v0.4.0**: `src/shim.cyr` — the event vocabulary
+> (`MehmanInputEvent`/`MehmanInputKind`, `MehmanLifecycle`, `MehmanAbi`) + per-ABI
+> **translation** (`shim_encode_input`/`_resize`/`_lifecycle` → the swallow-ABI
+> byte wire, byte-tested), dependency-free.
+>
+> **Live delivery shipped v1.0.0**: the deferred half landed once **kavach 3.7.0**
+> added a persistent-guest execution model (live stdin/stdout). mehman's
+> `guest_start` / `guest_send_input` / `guest_send_resize` / `guest_read`
+> (`src/guest.cyr`) shim-encode compositor events and deliver them to a live
+> guest. **Verified end-to-end**: an input event is delivered to a running
+> `/bin/cat` guest and read back byte-for-byte. See
+> [ADR 0005](../adr/0005-m3-shim-event-wire-and-deferred-delivery.md) and
+> [ADR 0006](../adr/0006-m3-live-delivery-persistent-guest.md).
 
 ### M4 — Guest lifecycle (v0.5.0) — ✅ shipped 2026-07-03 (in v0.4.0)
 

@@ -21,7 +21,8 @@ enum MehmanGuestState {
 
 # The backend handle. Fields (all i64): spec (MehmanGuestSpec*), surface
 # (MehmanSurface*), abi (MehmanAbi), state (MehmanGuestState), exit_code (last
-# run's kavach exec status, or -1 before the first run).
+# run's kavach exec status, or -1 before the first run), handle (a live kavach
+# PersistentGuest* for the M3 delivery path, or 0 when not started).
 #derive(accessors)
 struct MehmanGuest {
     spec;
@@ -29,8 +30,9 @@ struct MehmanGuest {
     abi;
     state;
     exit_code;
+    handle;
 }
-var MEHMAN_GUEST_SIZE = 40;   # 5 fields x 8 bytes
+var MEHMAN_GUEST_SIZE = 48;   # 6 fields x 8 bytes
 
 # guest_spawn(command, w, h): build a swallow-stage guest — its spec (swallow
 # caps: non-native, mediated I/O) + a fresh w×h XRGB8888 surface + the swallow
@@ -50,6 +52,7 @@ fn guest_spawn(command, w, h) {
     MehmanGuest_set_abi(g, MehmanAbi.ABI_SWALLOW);
     MehmanGuest_set_state(g, MehmanGuestState.GUEST_CREATED);
     MehmanGuest_set_exit_code(g, 0 - 1);
+    MehmanGuest_set_handle(g, 0);
     return g;
 }
 
@@ -58,6 +61,7 @@ fn guest_surface(g)   { return MehmanGuest_surface(g); }
 fn guest_abi(g)       { return MehmanGuest_abi(g); }
 fn guest_state(g)     { return MehmanGuest_state(g); }
 fn guest_exit_code(g) { return MehmanGuest_exit_code(g); }
+fn guest_handle(g)    { return MehmanGuest_handle(g); }
 
 # guest_map(g): the compositor has mapped a window for this guest. CREATED/MAPPED
 # → MAPPED. -> MehmanError.OK, or INVALID_SPEC for a null or already-evicted guest.
@@ -84,10 +88,73 @@ fn guest_run(g): i64 {
     return r;
 }
 
-# guest_evict(g): tear the guest down. Any state → EVICTED (terminal, idempotent).
+# --- M3 live delivery (persistent guest) ------------------------------------
+# The one-shot guest_run captures a guest that exits. The delivery path instead
+# keeps the guest LIVE (kavach 3.7.0 persistent execution) so the compositor can
+# stream input/resize events to it via the M3 shim.
+
+# guest_start(g): launch the guest as a PERSISTENT kavach process with live
+# stdin/stdout, storing the live handle and transitioning to RUNNING. -> OK, or
+# SANDBOX_CREATE_FAILED if the spawn failed, INVALID_SPEC for a null/evicted guest.
+fn guest_start(g): i64 {
+    if (g == 0) { return MehmanError.INVALID_SPEC; }
+    if (MehmanGuest_state(g) == MehmanGuestState.GUEST_EVICTED) { return MehmanError.INVALID_SPEC; }
+    if (guest_spec_is_valid(MehmanGuest_spec(g)) == 0) { return MehmanError.INVALID_SPEC; }
+    var h = persistent_spawn(MehmanGuestSpec_command(MehmanGuest_spec(g)));
+    if (h == 0) {
+        mehman_err_print(MehmanError.SANDBOX_CREATE_FAILED, 0);
+        return MehmanError.SANDBOX_CREATE_FAILED;
+    }
+    MehmanGuest_set_handle(g, h);
+    MehmanGuest_set_state(g, MehmanGuestState.GUEST_RUNNING);
+    return MehmanError.OK;
+}
+
+# guest_send_input(g, event): translate an input event through the shim (M3) and
+# deliver its wire bytes to the live guest's stdin. -> OK, INVALID_SPEC (null
+# guest / unsupported ABI / bad event), or EXEC_FAILED (guest not started).
+fn guest_send_input(g, event): i64 {
+    if (g == 0) { return MehmanError.INVALID_SPEC; }
+    var h = MehmanGuest_handle(g);
+    if (h == 0) { return MehmanError.EXEC_FAILED; }
+    var wire[16];
+    var n = shim_encode_input(MehmanGuest_abi(g), event, &wire);
+    if (n == 0) { return MehmanError.INVALID_SPEC; }
+    persistent_send(h, &wire, n);
+    return MehmanError.OK;
+}
+
+# guest_send_resize(g, w, h): translate + deliver a resize event to the live guest.
+fn guest_send_resize(g, w, h): i64 {
+    if (g == 0) { return MehmanError.INVALID_SPEC; }
+    var handle = MehmanGuest_handle(g);
+    if (handle == 0) { return MehmanError.EXEC_FAILED; }
+    var wire[16];
+    var n = shim_encode_resize(MehmanGuest_abi(g), w, h, &wire);
+    if (n == 0) { return MehmanError.INVALID_SPEC; }
+    persistent_send(handle, &wire, n);
+    return MehmanError.OK;
+}
+
+# guest_read(g, buf, len): read up to len bytes of the live guest's output
+# (blocking). -> bytes read, or -1 for a null / not-started guest.
+fn guest_read(g, buf, len): i64 {
+    if (g == 0) { return 0 - 1; }
+    var h = MehmanGuest_handle(g);
+    if (h == 0) { return 0 - 1; }
+    return persistent_read(h, buf, len);
+}
+
+# guest_evict(g): tear the guest down. Terminates + reaps the live persistent
+# handle if one is running. Any state → EVICTED (terminal, idempotent).
 # -> MehmanError.OK, or INVALID_SPEC for a null guest.
 fn guest_evict(g): i64 {
     if (g == 0) { return MehmanError.INVALID_SPEC; }
+    var h = MehmanGuest_handle(g);
+    if (h != 0) {
+        persistent_terminate(h);
+        MehmanGuest_set_handle(g, 0);
+    }
     MehmanGuest_set_state(g, MehmanGuestState.GUEST_EVICTED);
     return MehmanError.OK;
 }

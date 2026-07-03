@@ -4,6 +4,33 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.0.0] — 2026-07-03
+
+**mehman 1.0** — the swallow stage is complete. A foreign-ABI app runs sandboxed
+under kavach, its surface is captured for the compositor, and compositor events
+are delivered to it **live**. Roadmap milestones M1–M4 are all in, and every v1.0
+criterion is met (frozen + documented API, tests, benchmarks, a green downstream
+consumer, complete changelog, security-audit pass).
+
+### Added
+- **M3 live event delivery** (`src/guest.cyr`): `guest_start` launches a
+  **persistent live guest** (kavach 3.7.0), and `guest_send_input` /
+  `guest_send_resize` shim-encode a compositor event and stream it to the guest's
+  stdin; `guest_read` reads its output; `guest_evict` terminates + reaps the live
+  handle. Completes M3 (delivery was deferred in 0.4.0). **Verified end-to-end**:
+  an input event delivered to a running `/bin/cat` guest is read back
+  byte-for-byte. See [ADR 0006](docs/adr/0006-m3-live-delivery-persistent-guest.md).
+  109 asserts, all passing.
+- `docs/api.md` — the **frozen public API** reference (every exported symbol,
+  by module + consumption tier).
+- `docs/audit/2026-07-03-audit.md` — a **security-audit pass** of the swallow-stage
+  trust boundary (no high/medium findings; two documented low-severity streaming
+  notes).
+
+### Changed
+- `[deps.kavach]` `3.6.1` → **`3.7.0`** — the persistent-guest execution model
+  (live stdin/stdout) M3 delivery streams events over.
+
 ## [0.5.0] — 2026-07-03
 
 Hardening toward v1.0: real benchmarks of the swallow-stage compute hot paths

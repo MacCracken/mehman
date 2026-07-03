@@ -186,6 +186,27 @@ fn main() {
     assert_eq(guest_spawn("", 8, 4), 0, "spawn rejects empty command");
     assert_eq(guest_evict(0), MehmanError.INVALID_SPEC, "evict null guest rejected");
 
+    # ----- guest.cyr — M3 live event delivery (persistent guest) -----
+    test_group("guest.cyr — M3 live delivery (kavach persistent guest)");
+    var dg = guest_spawn("/bin/cat", 8, 4);   # cat echoes stdin -> stdout
+    assert_neq(dg, 0, "delivery guest spawns");
+    # send before start is rejected (no live handle)
+    assert_eq(guest_send_input(dg, shim_input_key(0x29, 1)), MehmanError.EXEC_FAILED, "send before start rejected");
+    assert_eq(guest_start(dg), MehmanError.OK, "guest_start (persistent) -> OK");
+    assert_eq(guest_state(dg), MehmanGuestState.GUEST_RUNNING, "started -> RUNNING");
+    assert_neq(guest_handle(dg), 0, "live handle set");
+    # deliver a key event (HID_ESC pressed) → shim wire [0x01,0x29,1] → cat echoes it
+    assert_eq(guest_send_input(dg, shim_input_key(0x29, 1)), MehmanError.OK, "send input event -> OK");
+    var dbuf = alloc(16);
+    assert_eq(guest_read(dg, dbuf, 16), 3, "guest received the 3-byte input event (echoed)");
+    assert_eq(load8(dbuf + 0), 0x01, "delivered byte 0 = key wire tag");
+    assert_eq(load8(dbuf + 1), 0x29, "delivered byte 1 = HID_ESC");
+    assert_eq(load8(dbuf + 2), 1, "delivered byte 2 = pressed");
+    # evict terminates + reaps the live guest
+    assert_eq(guest_evict(dg), MehmanError.OK, "evict -> OK");
+    assert_eq(guest_handle(dg), 0, "handle cleared after evict");
+    assert_eq(guest_state(dg), MehmanGuestState.GUEST_EVICTED, "evicted -> EVICTED");
+
     return assert_summary();
 }
 

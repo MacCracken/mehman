@@ -5,12 +5,15 @@
 
 ## Version
 
-**0.5.0** — cut 2026-07-03. **Hardening toward v1.0**: real benchmarks captured
-(`docs/benchmarks.md`) and the kavach dependency aligned to **3.6.1**. No
-swallow-stage API change — the roadmap **M1–M4 surface is stable** (M3 shim
-foundation + M4 guest lifecycle landed in 0.4.0), and the downstream consumer
-(aethersafha) is green. Builds on **0.4.0** (M3+M4) / **0.3.1** (pin → 6.3.40) /
-**0.3.0** (M2 capture) / **0.2.0** (M1 host) / **0.1.0** (scaffold + foundation).
+**1.0.0** — cut 2026-07-03. **The swallow stage is complete.** A foreign-ABI app
+runs sandboxed under kavach (M1), its surface is captured for the compositor (M2),
+compositor events translate + deliver to a **live** guest (M3), and the
+`MehmanGuest` lifecycle drives spawn/map/run/start/evict (M4). All six v1.0
+criteria met — frozen + documented API ([`../api.md`](../api.md)), tests,
+benchmarks, a green downstream consumer (aethersafha), complete CHANGELOG, and a
+[security audit](../audit/2026-07-03-audit.md). Depends on **kavach 3.7.0**
+(persistent-guest model). Builds on 0.5.0 / 0.4.0 (M3+M4) / 0.3.x (M2, pin) /
+0.2.0 (M1) / 0.1.0 (scaffold + foundation).
 
 ## Toolchain
 
@@ -49,11 +52,13 @@ foundation + M4 guest lifecycle landed in 0.4.0), and the downstream consumer
   `shim_encode_lifecycle` (translate events → the swallow-ABI byte wire) +
   `shim_input_key` / `shim_input_pointer_button` / `shim_input_pointer_motion`.
   Live delivery to a running guest is deferred (one-shot exec) — see M3 status.
-- `src/guest.cyr` — **M4 guest lifecycle**: `MehmanGuest`, the single backend
-  handle the compositor drives — `guest_spawn` (spec + surface + ABI) / `guest_map`
-  / `guest_run` (launch under kavach + capture) / `guest_evict`, over a
-  CREATED → MAPPED → RUNNING → EVICTED state machine (+ accessors). The real public
-  surface (retires the sentinel). Rides the `sandbox` feature (`guest_run` → kavach).
+- `src/guest.cyr` — **M4 guest lifecycle + M3 delivery**: `MehmanGuest`, the single
+  backend handle the compositor drives — `guest_spawn` (spec + surface + ABI) /
+  `guest_map` / `guest_run` (one-shot launch + capture) / `guest_evict`, over a
+  CREATED → MAPPED → RUNNING → EVICTED state machine (+ accessors). Plus the **M3
+  live-delivery** path: `guest_start` (persistent kavach guest), `guest_send_input`
+  / `guest_send_resize` (shim-encode + stream to the live guest), `guest_read`. The
+  real public surface (retires the sentinel). Rides the `sandbox` feature (kavach).
 
 ## M1 status — shipped (v0.2.0)
 
@@ -95,18 +100,17 @@ window with live guest content.
 - The descriptor + format stay value-aligned with bhumi's XRGB8888 model, so no
   remap on handoff.
 
-## M3 status — foundation shipped (v0.4.0)
+## M3 status — complete (v1.0.0)
 
-The M3 **translation** is implemented in `src/shim.cyr` (dependency-free): the
-event vocabulary + per-ABI encoders that turn compositor input / resize /
-lifecycle events into the swallow-ABI byte wire, verified byte-for-byte. The
-`MehmanAbi` enum is the per-foreign-ABI extension point.
-
-- **Live delivery is deferred** (the gated half): a kavach PROCESS-backend guest
-  is one-shot (no live stdin), so there is no running guest to stream the encoded
-  events to yet. M3's acceptance ("a guest receives input and resizes correctly")
-  lands with a persistent-guest execution model (a kavach change). See
-  [ADR 0005](../adr/0005-m3-shim-event-wire-and-deferred-delivery.md).
+Both halves are done. **Translation** (`src/shim.cyr`, dep-free): per-ABI encoders
+turn compositor input/resize/lifecycle events into the swallow-ABI byte wire.
+**Live delivery** (`src/guest.cyr`): `guest_start` launches a persistent live guest
+(kavach 3.7.0), `guest_send_input` / `guest_send_resize` shim-encode + stream events
+to its stdin, `guest_read` reads its output. M3's acceptance ("a guest receives
+input and resizes correctly") is **met** — verified end-to-end: an input event
+delivered to a running `/bin/cat` guest is read back byte-for-byte. See
+[ADR 0005](../adr/0005-m3-shim-event-wire-and-deferred-delivery.md) (translation)
+and [ADR 0006](../adr/0006-m3-live-delivery-persistent-guest.md) (delivery).
 
 ## M4 status — shipped (v0.4.0)
 
@@ -128,7 +132,8 @@ pieces directly; adopting the handle is a follow-on).
   M2 surface descriptor + `surface_blit_bytes` + the M2 capture handoff (real
   `/bin/echo` output captured into a surface buffer) + M3 event translation
   (per-ABI input/resize/lifecycle wire, byte-checked) + M4 guest lifecycle
-  (spawn/map/run/evict state machine, real launch+capture+evict). **96 asserts,
+  (spawn/map/run/evict state machine, real launch+capture+evict) + M3 live
+  delivery (persistent /bin/cat guest: encode → deliver → read back). **109 asserts,
   all passing** on `cyrius test`.
 - `tests/mehman.bcyr` — **benchmarks** of the compute hot paths (capture blit
   ~666 MiB/s; shim event translation ~13–14 ns/event); results in
@@ -139,7 +144,8 @@ pieces directly; adopting the handle is a follow-on).
 
 Direct (declared in `cyrius.cyml`):
 
-- **kavach 3.6.1** — sandbox-execution surface, **`optional = true`** behind the
+- **kavach 3.7.0** — sandbox-execution surface (one-shot + persistent-guest),
+  **`optional = true`** behind the
   default-on `sandbox` feature (cyrius dependency-model lever 2). Consumed as
   `dist/kavach.cyr` via `[deps.kavach]` (git + `../kavach` path); pulls transitive
   **sigil** through kavach's own `[deps.sigil]`. A downstream consumer that does
