@@ -4,6 +4,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.1] — 2026-07-03
+
+### Changed
+- Toolchain pin `6.3.5` → `6.3.40`, aligning mehman with the ecosystem
+  (aethersafha and kavach both on 6.3.x). Build + the 58-assert suite verified
+  green under 6.3.40; also clears the 6.3.5-snapshot `sakshi_span_*` version skew.
+
 ## [0.3.0] — 2026-07-03
 
 Milestone **M2 — foreign-surface capture**. mehman runs a foreign guest under a

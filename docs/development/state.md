@@ -5,8 +5,9 @@
 
 ## Version
 
-**0.3.0** — cut 2026-07-03. Milestone **M2 — foreign-surface capture**: mehman
-runs a foreign guest and captures its surface into the compositor's buffer
+**0.3.1** — cut 2026-07-03. Toolchain pin bump to 6.3.40 (ecosystem alignment) on
+top of **0.3.0** — Milestone **M2 — foreign-surface capture**: mehman runs a
+foreign guest and captures its surface into the compositor's buffer
 (`mehman_sandbox_capture_guest`), and its surface/type contract is consumable
 standalone (kavach feature-gated). Builds on **0.2.1** (M2 foundation — the
 surface descriptor), **0.2.0** (M1 — sandboxed foreign host, kavach 3.6.0), and
@@ -14,8 +15,8 @@ surface descriptor), **0.2.0** (M1 — sandboxed foreign host, kavach 3.6.0), an
 
 ## Toolchain
 
-- **Cyrius pin**: `6.3.5` (in `cyrius.cyml [package].cyrius`; wrapper is 6.3.36 —
-  benign drift, warned on every build).
+- **Cyrius pin**: `6.3.40` (in `cyrius.cyml [package].cyrius`) — matches the active
+  wrapper and the ecosystem (aethersafha, kavach). Build + 58-assert suite green.
 
 ## Source
 

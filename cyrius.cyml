@@ -4,7 +4,7 @@ version = "${file:VERSION}"
 description = "mehman — sovereign compat/swallow surface backend for the AGNOS compositor (hosts foreign-app surfaces in a kavach sandbox)"
 license = "GPL-3.0-only"
 language = "cyrius"
-cyrius = "6.3.5"
+cyrius = "6.3.40"
 
 [build]
 entry = "programs/smoke.cyr"
