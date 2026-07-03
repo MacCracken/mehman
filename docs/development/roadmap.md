@@ -10,8 +10,9 @@ _Define before tagging v0.1.0:_
 
 - [ ] Public API frozen — every exported symbol documented and tested
 - [ ] Test coverage adequate for the surface area
-- [ ] Benchmarks captured in `docs/benchmarks.md`
-- [ ] At least one downstream consumer green
+- [x] Benchmarks captured in `docs/benchmarks.md`
+- [x] At least one downstream consumer green — aethersafha 0.4.0 consumes mehman
+      (types / surface / sandbox) and hosts+runs+captures a live foreign guest
 - [ ] CHANGELOG complete from v0.1.0 onward
 - [ ] Security audit pass (`docs/audit/YYYY-MM-DD-audit.md`)
 

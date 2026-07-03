@@ -130,14 +130,16 @@ pieces directly; adopting the handle is a follow-on).
   (per-ABI input/resize/lifecycle wire, byte-checked) + M4 guest lifecycle
   (spawn/map/run/evict state machine, real launch+capture+evict). **96 asserts,
   all passing** on `cyrius test`.
-- `tests/mehman.bcyr` — benchmark stub (no-op)
+- `tests/mehman.bcyr` — **benchmarks** of the compute hot paths (capture blit
+  ~666 MiB/s; shim event translation ~13–14 ns/event); results in
+  [`../benchmarks.md`](../benchmarks.md). Run: `cyrius bench tests/mehman.bcyr`.
 - `tests/mehman.fcyr` — fuzz stub
 
 ## Dependencies
 
 Direct (declared in `cyrius.cyml`):
 
-- **kavach 3.6.0** — sandbox-execution surface, **`optional = true`** behind the
+- **kavach 3.6.1** — sandbox-execution surface, **`optional = true`** behind the
   default-on `sandbox` feature (cyrius dependency-model lever 2). Consumed as
   `dist/kavach.cyr` via `[deps.kavach]` (git + `../kavach` path); pulls transitive
   **sigil** through kavach's own `[deps.sigil]`. A downstream consumer that does

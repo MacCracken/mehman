@@ -4,6 +4,17 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- `docs/benchmarks.md` + a real `tests/mehman.bcyr` — benchmarks of the
+  swallow-stage compute hot paths (surface capture blit ~666 MiB/s; M3 event
+  translation ~13–14 ns/event), replacing the no-op bench stub. Satisfies the
+  v1.0 "benchmarks captured" criterion.
+
+### Changed
+- `[deps.kavach]` `3.6.0` → `3.6.1` (kavach's toolchain-pin maintenance release;
+  the consumable `dist/kavach.cyr` is byte-identical apart from its version
+  header, so this is inert — mehman's 96-assert suite is unchanged).
+
 ## [0.4.0] — 2026-07-03
 
 Milestone **M3 protocol shim (foundation) + M4 guest lifecycle** — the swallow

@@ -1,21 +1,50 @@
-# mehman benchmarks
-# Stdlib auto-included via cyrius.cyml
+# mehman benchmarks — the swallow-stage compute hot paths.
 #
-# Pattern: bench_new -> bench_batch_start -> tight loop -> bench_batch_stop -> bench_report.
-# For sub-1us ops use batch_size >= 1000 to amortize clock_gettime overhead
-# (~240 ns per start/stop pair on x86_64 Linux). See lib/bench.cyr header for
-# the full overhead-vs-batching guidance.
+# What's measured: the pure in-process work on the frame/event path — the M2
+# surface capture blit (`surface_blit_bytes`) and the M3 event translation
+# (`shim_encode_*`). The kavach-sandboxed run/capture itself is syscall-bound
+# (fork+exec+waitpid), not a micro-benchmark, so it is not timed here.
+#
+# Pattern: bench_new -> bench_batch_start -> tight loop -> bench_batch_stop ->
+# bench_report. batch_size >= 1000 amortizes the ~240 ns clock_gettime overhead
+# per start/stop pair (see lib/bench.cyr). Run with `cyrius bench tests/mehman.bcyr`.
 
-fn bench_noop(): i64 { return 0; }
+include "src/main.cyr"
 
 fn main(): i64 {
     alloc_init();
-    var b = bench_new("noop");
-    bench_batch_start(b);
+
+    # --- surface_blit_bytes: capture a 4 KiB guest surface (32x32 XRGB8888) ---
+    var buf = alloc(4096);
+    var surf = surface_new(32, 32, MehmanPixelFormat.XRGB8888, 128, buf);   # 128 * 32 = 4096
+    var src = alloc(4096);
     var i = 0;
-    while (i < 1000000) { bench_noop(); i = i + 1; }
-    bench_batch_stop(b, 1000000);
-    bench_report(b);
+    while (i < 4096) { store8(src + i, 65); i = i + 1; }
+    var b1 = bench_new("surface_blit_bytes (4 KiB capture)");
+    bench_batch_start(b1);
+    var n1 = 0;
+    while (n1 < 200000) { surface_blit_bytes(surf, src, 4096); n1 = n1 + 1; }
+    bench_batch_stop(b1, 200000);
+    bench_report(b1);
+
+    # --- shim_encode_input: translate a key event into the guest wire ---
+    var ev = shim_input_key(0x29, 1);
+    var wire = alloc(16);
+    var b2 = bench_new("shim_encode_input (key)");
+    bench_batch_start(b2);
+    var n2 = 0;
+    while (n2 < 2000000) { shim_encode_input(MehmanAbi.ABI_SWALLOW, ev, wire); n2 = n2 + 1; }
+    bench_batch_stop(b2, 2000000);
+    bench_report(b2);
+
+    # --- shim_encode_resize: translate a resize event ---
+    var b3 = bench_new("shim_encode_resize");
+    bench_batch_start(b3);
+    var n3 = 0;
+    while (n3 < 2000000) { shim_encode_resize(MehmanAbi.ABI_SWALLOW, 800, 600, wire); n3 = n3 + 1; }
+    bench_batch_stop(b3, 2000000);
+    bench_report(b3);
+
     return 0;
 }
 
