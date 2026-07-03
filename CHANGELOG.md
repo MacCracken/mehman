@@ -4,6 +4,39 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-07-03
+
+Milestone **M1 — sandboxed foreign host**. mehman now runs a foreign-ABI binary
+as a guest inside a kavach sandbox and reaps it cleanly — the swallow stage's
+core act. Depends on kavach 3.6.0 (now consumable as a dist bundle).
+
+### Added
+- `src/sandbox.cyr` — `mehman_sandbox_run_guest(spec, out_exit_code)`: validates
+  the guest against the swallow-stage capability contract, then drives kavach's
+  PROCESS-backend lifecycle (`kavach_init` → `config_new` →
+  `config_backend(PROCESS)` → `sandbox_create` → `sandbox_transition(RUNNING)` →
+  `sandbox_exec` → `sandbox_destroy`), mapping kavach failure signals onto the
+  `MehmanError` namespace. **M1 acceptance met**: a trivial foreign binary
+  (`/bin/true`, `/bin/false`) runs sandboxed and is reaped cleanly.
+- `tests/mehman.tcyr` — M1 host group (spec rejection pre-init; real
+  fork+exec+reap of `/bin/true`/`/bin/false`). **28 asserts total, all passing.**
+
+### Changed
+- Consume **kavach 3.6.0** via `[deps.kavach]` (git + `../kavach` path,
+  `modules = ["dist/kavach.cyr"]`), source-included in `src/main.cyr`'s chain
+  after `src/types.cyr`. `[deps].stdlib` expanded to kavach's full transitive
+  set (required to link the bundle). See [ADR 0002](docs/adr/0002-consume-kavach-3.6.0-and-land-m1.md).
+
+### Notes
+- kavach's PROCESS backend reports a coarse exec status via `out_exit_code`
+  (0 = ran + output captured, 1 = exec failed) — **not** the guest's own
+  `WEXITSTATUS`. Documented in `src/sandbox.cyr`; true guest-exit propagation is
+  a future kavach concern. M2 (foreign-surface capture) remains gated on
+  aethersafha.
+- Known-benign integration warnings from the heavy kavach bundle: `duplicate fn`
+  (`syserr_*`/`err_*`, last-def-wins), a `lib/sandhi.cyr` arg-count warning on a
+  credential path M1 does not exercise, and ~13 MB static scan tables.
+
 ## [0.1.0] — 2026-07-02
 
 First release. Scaffold + the dependency-free foundation vocabulary the

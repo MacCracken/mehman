@@ -38,7 +38,8 @@
 # Ordered for Cyrius single-pass forward-reference resolution: the foundation
 # vocabulary (types.cyr) is included first so the domain modules can name it.
 include "src/types.cyr"        # foundation vocabulary: error / caps / guest spec
-# include "src/sandbox.cyr"    # kavach-sandboxed foreign host
+include "lib/kavach.cyr"       # kavach 3.6.0 sandbox-execution surface (dist bundle)
+include "src/sandbox.cyr"      # M1: kavach-sandboxed foreign host
 # include "src/surface.cyr"    # foreign-surface capture / shared-buffer import
 # include "src/shim.cyr"       # per-foreign-ABI protocol translation
 # include "src/guest.cyr"      # guest lifecycle: spawn / map / evict

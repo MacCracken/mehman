@@ -31,22 +31,22 @@ _Define before tagging v0.1.0:_
 > platform backend) is consumable by aethersafha and the swallow stage is on the
 > AGNOS maturity arc. Until then this repo is a scaffolded seam.
 
-### M1 — Sandboxed foreign host (v0.2.0)
+### M1 — Sandboxed foreign host (v0.2.0) — ✅ shipped 2026-07-03
 
 `src/sandbox.cyr` — spawn a foreign-ABI binary under a **kavach** sandbox with a
 bounded capability set (no native protocol access; mediated I/O only).
-Acceptance: a trivial foreign binary runs sandboxed and is reaped cleanly.
-**Dep gate**: kavach sandbox-execution surface; an AGNOS foreign-ABI execution
-path (the swallow stage existing at all).
+Acceptance: a trivial foreign binary runs sandboxed and is reaped cleanly — ✅
+met (`mehman_sandbox_run_guest` runs + reaps `/bin/true` / `/bin/false` via
+kavach's PROCESS backend; 28-assert suite green).
 
-> **Foundation shipped in v0.1.0 (2026-07-02)**: the dependency-free vocabulary
-> M1 consumes — `src/types.cyr` (`MehmanError` / `MehmanCaps` / `MehmanGuestSpec`
-> + validators) — is released. The M1 host is designed against kavach 3.5.4's
-> surface but is **blocked**: kavach is not yet consumable as a Cyrius library
-> (no `dist/kavach.cyr` bundle / `[lib]` section; no bundle generator in the
-> toolchain; its `src/main.cyr` is a program entry, not a library surface). See
-> [ADR 0001](../adr/0001-defer-m1-until-kavach-is-consumable.md) and
-> [`state.md`](state.md). Unblocking is kavach-repo work.
+> **Shipped v0.2.0 (2026-07-03)**: unblocked once kavach **3.6.0** shipped a
+> consumable `dist/kavach.cyr` bundle. mehman consumes it via `[deps.kavach]`
+> (plus kavach's transitive stdlib) and drives the sandbox lifecycle. The former
+> blocker (kavach not consumable) is resolved — see
+> [ADR 0002](../adr/0002-consume-kavach-3.6.0-and-land-m1.md), following on from
+> [ADR 0001](../adr/0001-defer-m1-until-kavach-is-consumable.md). Caveat: kavach's
+> PROCESS backend does not propagate the guest's `WEXITSTATUS`; M1 surfaces a
+> coarse exec status only.
 
 ### M2 — Foreign-surface capture (v0.3.0)
 

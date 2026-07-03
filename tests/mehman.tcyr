@@ -57,6 +57,25 @@ fn main() {
     # a null spec is rejected
     assert_eq(guest_spec_is_valid(0), 0, "null spec rejected");
 
+    # ----- sandbox.cyr — M1 sandboxed foreign host ----------------------
+    test_group("sandbox.cyr — M1 host (kavach PROCESS backend)");
+    # invalid specs are rejected before any kavach runtime is initialized
+    assert_eq(mehman_sandbox_run_guest(0, 0), MehmanError.INVALID_SPEC, "host rejects null spec");
+    assert_eq(mehman_sandbox_run_guest(guest_spec_new("", caps_swallow_default()), 0), MehmanError.INVALID_SPEC, "host rejects empty command");
+    # M1 acceptance: a trivial foreign binary runs sandboxed and is reaped cleanly
+    var code_slot = alloc(8);
+    store64(code_slot, 0 - 1);
+    var spec = guest_spec_new("/bin/true", caps_swallow_default());
+    assert_eq(mehman_sandbox_run_guest(spec, code_slot), MehmanError.OK, "trivial foreign binary runs + reaps clean");
+    assert_eq(load64(code_slot), 0, "kavach exec status 0 (ran + output captured)");
+    # a second, distinct foreign binary also runs + reaps cleanly. Its captured
+    # status is 0 too — kavach's PROCESS backend reports capture-success, NOT the
+    # guest's own exit code: /bin/false exits 1, but that WEXITSTATUS is not
+    # propagated by kavach's exec_capture path (documented contract, not a bug here).
+    store64(code_slot, 0 - 1);
+    assert_eq(mehman_sandbox_run_guest(guest_spec_new("/bin/false", caps_swallow_default()), code_slot), MehmanError.OK, "second foreign binary runs + reaps clean");
+    assert_eq(load64(code_slot), 0, "kavach reports capture-success, not guest WEXITSTATUS");
+
     return assert_summary();
 }
 

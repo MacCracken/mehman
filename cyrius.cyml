@@ -14,4 +14,25 @@ output = "build/mehman-smoke"
 modules = ["src/main.cyr"]
 
 [deps]
-stdlib = ["string", "fmt", "alloc", "io", "vec", "str", "syscalls", "assert", "bench"]
+# mehman's own stdlib (assert/bench for tests + benches) unioned with kavach's
+# transitive stdlib — REQUIRED to link the kavach dist bundle. Its
+# dist/kavach.deps sidecar lists only kavach's *direct* leaves; a consumer that
+# omits the full transitive set fails to LINK (undefined thread_local_* /
+# sandhi_server_* / async_* / TLS_BACKEND_LIBSSL). Mirrors kavach's own
+# [deps].stdlib. See kavach README "Consume kavach as a library".
+stdlib = [
+    "alloc", "assert", "async", "bayan", "bench", "chrono", "ct", "dynlib",
+    "fdlopen", "fmt", "fnptr", "freelist", "fs", "hashmap", "hashmap_fast",
+    "io", "keccak", "mmap", "net", "process", "random", "result", "sandhi",
+    "slice", "str", "string", "syscalls", "tagged", "thread", "thread_local",
+    "tls", "vec",
+]
+
+# kavach 3.6.0 — the sandbox-execution surface M1 drives. Consumed as the
+# committed single-file dist bundle (materialized into lib/kavach.cyr by
+# `cyrius deps`); source-included via src/main.cyr's chain. See ADR 0001.
+[deps.kavach]
+git     = "https://github.com/MacCracken/kavach.git"
+path    = "../kavach"
+tag     = "3.6.0"
+modules = ["dist/kavach.cyr"]
