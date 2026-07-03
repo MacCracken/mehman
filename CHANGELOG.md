@@ -4,6 +4,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.1] — 2026-07-03
+
+M2 **foundation** (the dep-free surface descriptor) plus a build-hygiene change.
+The full M2 milestone (buffer capture + aethersafha handoff) remains v0.3.0.
+
 ### Added
 - `src/surface.cyr` — **M2 foundation**: the `MehmanSurface` foreign-surface
   descriptor (width / height / pixel format / stride / buffer handle) +

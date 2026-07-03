@@ -5,11 +5,11 @@
 
 ## Version
 
-**0.2.0** — cut 2026-07-03. Milestone **M1 — sandboxed foreign host**: mehman
-runs a foreign-ABI binary as a guest inside a kavach sandbox and reaps it
-cleanly. Builds on **0.1.0** (2026-07-02: scaffold + the dependency-free
-foundation vocabulary). M2 (foreign-surface capture) is next and gated on
-aethersafha.
+**0.2.1** — cut 2026-07-03. Adds the **M2 foundation** (`src/surface.cyr`, the
+dep-free surface descriptor) plus a build-hygiene change (stop committing
+`lib/`). Builds on **0.2.0** (M1 — sandboxed foreign host, kavach 3.6.0) and
+**0.1.0** (scaffold + foundation vocabulary). The full M2 milestone (buffer
+capture + aethersafha handoff) remains v0.3.0, gated on aethersafha.
 
 ## Toolchain
 
@@ -62,8 +62,9 @@ as a Cyrius library — is resolved). See
 ## M2 status — foundation landed, capture/handoff gated
 
 `src/surface.cyr` defines the `MehmanSurface` descriptor (the producer-side
-contract aethersafha imports) and its validation, dependency-free and shipped as
-unreleased groundwork toward v0.3.0. The two gated halves are **deferred**:
+contract aethersafha imports) and its validation, dependency-free and shipped in
+**v0.2.1** as groundwork toward the full v0.3.0 milestone. The two gated halves
+are **deferred**:
 
 - **Buffer capture** — a kavach PROCESS-backend guest produces stdout, not a
   framebuffer; there is no foreign-guest-renders-a-surface path yet.

@@ -55,10 +55,11 @@ and expose it to the compositor as a native surface via aethersafha.
 Acceptance: a foreign app's framebuffer appears as a compositor surface.
 **Dep gate**: aethersafha surface-import API; bhumi presenting.
 
-> **Foundation landed (unreleased, toward v0.3.0)**: `src/surface.cyr` defines
-> the producer-side `MehmanSurface` descriptor (`MehmanPixelFormat.XRGB8888`,
+> **Foundation shipped in v0.2.1 (2026-07-03)**: `src/surface.cyr` defines the
+> producer-side `MehmanSurface` descriptor (`MehmanPixelFormat.XRGB8888`,
 > width/height/stride/buffer + validators), value-aligned with bhumi's pixel
-> model — the contract aethersafha imports. The two gated halves remain deferred:
+> model — the contract aethersafha imports. The two gated halves remain deferred
+> to the full v0.3.0 milestone:
 > the **buffer capture** (a PROCESS-backend guest emits stdout, not pixels — no
 > foreign-render path yet) and the **aethersafha handoff** (aethersafha 0.1.0
 > defers consuming mehman — "Bite G", post-MVP — with no surface-import API yet).
