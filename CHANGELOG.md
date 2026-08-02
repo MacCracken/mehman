@@ -4,6 +4,47 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.0.1] — 2026-08-02
+
+Ships a fix that has been sitting in `src/` uncut since kavach 3.8.2, and which every consumer
+resolving mehman **by tag** has been failing on.
+
+### Fixed — the 1.0.0 tag called `backend_name`, which kavach renamed away
+
+kavach **3.8.2** renamed `backend_name` → `os_backend_name` to end a collision with ai-hwaccel's
+own `backend_name` (a *different* enum space — `backend_name(Backend.OCI)` → `"intel-npu"`). This
+repo's `src/sandbox.cyr:88` was updated to follow, and then **never cut**. So the published 1.0.0
+tag still calls the old name, and against any kavach ≥ 3.8.2 that symbol does not exist.
+
+⛔ **THE VERSION FILE AGREED WITH THE TAG WHILE THE SOURCE DID NOT, which is why no drift check
+caught it.** `VERSION` said 1.0.0, the consumer declared `tag = "1.0.0"`, and a survey comparing the
+two reports a match. The content had moved underneath both. **A version number is only evidence
+about the tag if every source change bumps it.**
+
+⚠ **`path` masked it in every local build.** Consumers declare `path = "../mehman"` alongside the
+tag and **the path wins**, so every developer compiled the corrected working tree while CI — which
+has no sibling checkouts and resolves purely from git — compiled the stale tag. It surfaced as
+`undefined function 'backend_name'` in the aethersafha compositor's CI, in a repo that had changed
+nothing related. ⭐ The general rule: a `path` override does not just pin a version, it **disables
+the tag as a test**, so the first honest build of the declared graph is the one that runs in CI.
+
+### Fixed — this repo did not build at all
+
+`cyrius build` failed with `undefined function 'thread_local_alloc'`. The symbol is in cyrius
+6.5.5's stdlib and **not** in 6.3.40's, and the vendored `lib/` snapshot was taken at the old pin —
+the stale-vendored-lib trap. kavach's `dist/` is generated against a current toolchain, so it
+reasonably expects a current stdlib. Fixed by pin **6.3.40 → 6.5.5** plus `cyrius lib sync --full`.
+
+### Changed — `[deps.kavach]` tag 3.7.0 → 3.11.0
+
+⚠ The declared tag was **3.7.0**, which is the last kavach that still defined `backend_name` — so
+this repo's own manifest disagreed with its own source, in the same direction and for the same
+reason. Resolving mehman's graph from tags alone would have failed even without a consumer.
+
+### Verified
+
+Build green (`programs/smoke.cyr`); **109 tests pass, 0 fail**.
+
 ## [1.0.0] — 2026-07-03
 
 **mehman 1.0** — the swallow stage is complete. A foreign-ABI app runs sandboxed

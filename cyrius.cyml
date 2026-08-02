@@ -4,7 +4,7 @@ version = "${file:VERSION}"
 description = "mehman — sovereign compat/swallow surface backend for the AGNOS compositor (hosts foreign-app surfaces in a kavach sandbox)"
 license = "GPL-3.0-only"
 language = "cyrius"
-cyrius = "6.3.40"
+cyrius = "6.5.5"
 
 [build]
 entry = "programs/smoke.cyr"
@@ -47,6 +47,6 @@ sandbox = ["kavach"]
 [deps.kavach]
 git      = "https://github.com/MacCracken/kavach.git"
 path     = "../kavach"
-tag      = "3.7.0"
+tag      = "3.11.0"
 modules  = ["dist/kavach.cyr"]
 optional = true
