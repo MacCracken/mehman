@@ -4,7 +4,7 @@ version = "${file:VERSION}"
 description = "mehman — sovereign compat/swallow surface backend for the AGNOS compositor (hosts foreign-app surfaces in a kavach sandbox)"
 license = "GPL-3.0-only"
 language = "cyrius"
-cyrius = "6.5.5"
+cyrius = "6.5.27"
 
 [build]
 entry = "programs/smoke.cyr"
@@ -13,40 +13,78 @@ output = "build/mehman-smoke"
 [lib]
 modules = ["src/main.cyr"]
 
+# ⛔ KEEP `[deps]` INSIDE THE FIRST 4095 BYTES OF THIS FILE — long commentary goes
+# BELOW it, never above. `cyrius build/run/test` reach the resolver via
+# `_auto_deps`, which reads only the FIRST 4095 bytes looking for `[deps]`/`[deps.`
+# (6.5.27 `cbt/deps.cyr`). Push the marker past that and `cmd_deps()` never runs:
+# nothing is vendored, nothing is prepended, and the build dies on undefined stdlib
+# symbols — while a bare `cyrius deps` still reports success and fully populates
+# `lib/` (it reads 32767 bytes). No diagnostic names the cause.
 [deps]
-# mehman's own stdlib for a DEFAULT (sandbox-on) build: the dep-free base plus
-# kavach's transitive set (needed to link the kavach dist bundle). This list is
-# mehman's OWN build concern only — stdlib is consumer-declared, so a downstream
-# project that consumes mehman does NOT inherit it; it declares its own (light)
-# stdlib. The consumer-decoupling comes from the optional `kavach` dep below.
-stdlib = [
-    "alloc", "assert", "async", "bayan", "bench", "chrono", "ct", "dynlib",
-    "fdlopen", "fmt", "fnptr", "freelist", "fs", "hashmap", "hashmap_fast",
-    "io", "keccak", "mmap", "net", "process", "random", "result", "sandhi",
-    "slice", "str", "string", "syscalls", "tagged", "thread", "thread_local",
-    "tls", "vec",
-]
+stdlib = ["alloc", "assert", "bench", "string", "syscalls", "vec"]
+
+# ⭐ THIS LIST IS mehman's OWN NEEDS ONLY — six leaves, and that is the point.
+# `alloc` (every constructor), `string` (strlen/println), `syscalls` (sys_write,
+# SYS_EXIT), `assert` (tests/mehman.tcyr), `bench` (tests/mehman.bcyr), `vec`
+# (`lib/bench.cyr` + `lib/fmt.cyr` call `vec_len`/`vec_get`). It is also EXACTLY
+# what the sandbox-off build needs, which is what makes that build a real guard
+# rather than a formality — `vec` is here BECAUSE that build reported it undefined
+# and the default build, fed by kavach's sidecar, never did.
+#
+# ⛔ DO NOT RE-ADD kavach's TRANSITIVE SET HERE. Through v1.0.1 this list was the
+# dep-free base PLUS a hand-copied snapshot of kavach's stdlib (`sandhi`, `tls`,
+# `net`, `keccak`, `async`, `thread_local`, … 31 leaves). That copy was
+# unnecessary AND wrong: `cyrius deps` reads kavach's `dist/kavach.deps` sidecar
+# and pulls the leaves the bundle declares, automatically, before prepending the
+# bundle itself — so the hand copy bought nothing and silently drifted from the
+# real list. It was missing `sakshi`, which `lib/sandhi.cyr` calls
+# (`sakshi_span_enter/exit/depth`). The default build never noticed, because the
+# sidecar supplied `sakshi` anyway; the sandbox-off build has no sidecar and
+# therefore had no `sakshi` — 2 reachable undefined functions, since day one.
+# ⇒ A leaf kavach needs belongs in kavach's sidecar. A leaf THIS project's own
+#   src/ + tests/ name belongs here. Nothing belongs in both lists by hand.
+#
+# ⚠ STDLIB IS CONSUMER-DECLARED — a downstream project does NOT inherit this list;
+# it declares its own (aethersafha's is much heavier because it consumes
+# `src/sandbox.cyr` and declares kavach itself). The consumer-decoupling comes
+# from the optional `kavach` dep below, not from this list.
 
 # Feature gating — cyrius dependency-model lever 2 (v6.3.1: `optional` +
-# `[features]`). The M1 sandbox host (`src/sandbox.cyr` → kavach) sits behind the
-# default-on `sandbox` feature. mehman's own build/tests keep it (default active).
-# A CONSUMER of mehman's surface/types (e.g. aethersafha) builds WITHOUT it:
-# transitive `[features]` tables are not parsed, so the optional `kavach` dep
-# stays inactive for the consumer — no clone, no module copy, so the kavach →
-# sandhi → TLS *bundle* never lands in the consumer. mehman itself can opt out
-# with `cyrius build --no-default-features` (see programs/surface_smoke.cyr).
+# `[features]`). The M1 sandbox host (`src/sandbox.cyr` → kavach) and the M4 guest
+# lifecycle (`src/guest.cyr` → kavach's `persistent_*`) sit behind the default-on
+# `sandbox` feature. mehman's own build, tests and benchmarks keep it (default
+# active); `programs/surface_smoke.cyr` is the sandbox-off entry point.
+#
+# ⭐ THIS IS LOAD-BEARING FOR CONSUMERS, NOT DECORATION. `cyrius deps` DOES walk
+# transitive `[deps.*]` (Phase 3 BFS over each resolved dep's own manifest), but it
+# parses `[features]` ONCE, from the CONSUMER's manifest. A consumer with no
+# `[features]` table therefore activates nothing, so an `optional = true` dep of
+# mehman's is skipped entirely for it — no clone, no module copy. Drop `optional`
+# and every consumer of mehman's dependency-free types would inherit the whole
+# kavach → sandhi → TLS bundle again, which is the exact blocker ADR 0003 removed.
+#
+# ⚠ THE FEATURE HAS A SOURCE-SIDE HALF the toolchain cannot set for you:
+# `#define MEHMAN_NO_SANDBOX 1`. `[features]` gates dep RESOLUTION only — there is
+# no feature→`#define` bridge — so `--no-default-features` alone leaves
+# `src/main.cyr` including a `lib/kavach.cyr` that was never vendored. See the
+# include-chain comment in src/main.cyr and ADR 0007.
 [features]
 default = ["sandbox"]
 sandbox = ["kavach"]
 
-# kavach 3.7.0 — the sandbox-execution surface M1/M3 drive (3.7.0 adds the
-# persistent-guest model with live stdin, which M3 delivery streams events over).
-# Consumed as the committed dist bundle (materialized into lib/kavach.cyr by
-# `cyrius deps`); source-included via src/main.cyr's chain. See ADR 0001/0002/0003.
+# kavach — the sandbox-execution surface M1/M3 drive (3.7.0 added the persistent-
+# guest model with live stdin, which M3 delivery streams events over). Consumed as
+# the committed dist bundle (materialized into lib/kavach.cyr by `cyrius deps`);
+# source-included via src/main.cyr's chain. See ADR 0001/0002/0003/0007.
 # OPTIONAL, activated by the `sandbox` feature — skipped entirely when off.
+#
+# ⚠ `path` WINS OVER `tag`, so a local sibling checkout silently masks a wrong tag
+# here; re-verify this line against ../kavach/VERSION at every cut. That is the
+# 1.0.1 incident (a stale tag published for two cuts) and the 1.0.2 one (a tag four
+# patches behind a contract change) — see CHANGELOG.
 [deps.kavach]
 git      = "https://github.com/MacCracken/kavach.git"
 path     = "../kavach"
-tag      = "3.11.0"
+tag      = "3.11.14"
 modules  = ["dist/kavach.cyr"]
 optional = true

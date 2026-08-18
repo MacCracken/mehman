@@ -7,7 +7,10 @@ symbol a consumer (aethersafha) depends on is listed here; all are exercised by
 - **Dependency-free** (`src/types.cyr`, `src/surface.cyr`, `src/shim.cyr`) — the
   error / capability / guest-spec / surface / event vocabulary. Consumable
   standalone (no kavach); a consumer declares `[deps.mehman] modules = [...]`
-  without enabling the `sandbox` feature.
+  without enabling the `sandbox` feature. ⭐ Since v1.0.2 this tier is **built and
+  run on every push** (`programs/surface_smoke.cyr`, the CI `surface-only` job) —
+  before that it was a claim, and a broken one; see
+  [ADR 0007](adr/0007-make-the-sandbox-off-build-real.md).
 - **Sandbox** (`src/sandbox.cyr`, `src/guest.cyr`) — the kavach-backed execution:
   run/capture and the live guest lifecycle. Requires the `sandbox` feature (kavach
   3.7.0).
@@ -67,8 +70,12 @@ motion `[0x03,x:u16le,y:u16le]`, resize `[0x10,w:u16le,h:u16le]`, lifecycle
 | `mehman_sandbox_run_guest` | `(spec, out_exit_code) -> MehmanError` | run a guest one-shot under kavach PROCESS backend; reap |
 | `mehman_sandbox_capture_guest` | `(spec, surface, out_exit_code) -> MehmanError` | one-shot run + capture the guest's output into the surface buffer (M2) |
 
-`out_exit_code` is kavach's coarse exec status (0 = ran + captured, 1 = exec
-failed), **not** the guest's `WEXITSTATUS` (ADR 0004).
+`out_exit_code` is the guest's own exit status — `/bin/false` gives 1 — since
+mehman v1.0.2 / kavach 3.11.4. ⚠ Through v1.0.1 it was a coarse exec status
+(0 = ran + captured, 1 = exec failed) and explicitly **not** `WEXITSTATUS`;
+kavach 3.11.4 began decoding the real status on both its capture paths. Use the
+`MehmanError` return to decide whether the run succeeded, and this value to
+decide what the guest itself reported. See ADR 0002's superseding note.
 
 ## `src/guest.cyr` — guest lifecycle + M3 delivery (`sandbox` feature)
 
@@ -92,3 +99,11 @@ See the [README](../README.md) "Consume mehman's surface contract" section. The
 dep-free tier needs no kavach; the sandbox tier requires the `sandbox` feature and
 kavach 3.7.0. Stability: this surface is **frozen at v1.0** — additive changes only
 within 1.x.
+
+⚠ **`mehman_sandbox_run_guest` / `mehman_sandbox_capture_guest`: `out_exit_code`
+changed meaning at v1.0.2.** It is now the guest's own `WEXITSTATUS` (kavach
+3.11.4), not the coarse "ran / didn't" exec status documented through v1.0.1.
+Branch on the `MehmanError` return to learn whether the run succeeded; read
+`out_exit_code` as the guest's status. Not an API-shape change — a semantics
+change inherited from kavach — but callers that tested `out_exit_code == 0` for
+success must move that test to the return value.

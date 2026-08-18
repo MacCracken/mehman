@@ -29,11 +29,37 @@ mehman is **post-MVP** (the swallow stage). It is scaffolded now so the composit
 `lib/` is gitignored and regenerated from the pinned toolchain:
 
 ```sh
-cyrius lib sync --full                               # vendor the pinned stdlib snapshot
-cyrius deps                                          # resolve [deps.*] (kavach, via the sandbox feature)
+cyrius deps                                          # vendor [deps].stdlib + kavach (via the sandbox feature)
 cyrius build programs/smoke.cyr build/mehman-smoke   # compile-link the smoke
 cyrius test                                          # run tests/*.tcyr
 ```
+
+⛔ Do **not** run `cyrius lib sync --full` first. `cyrius deps` alone is the whole
+vendor step; `--full` copies the entire 102-module pinned snapshot, so the build
+resolves modules the manifest never declared and a dependency gap that breaks real
+consumers stays invisible. It was removed from CI at v1.0.2 for exactly that — it
+had been hiding a missing `sakshi` declaration since 2026-07-03. If a symbol comes
+up undefined, declare its module in `[deps].stdlib`.
+
+### The sandbox-off build
+
+mehman's light half — `src/types.cyr` / `src/surface.cyr` / `src/shim.cyr`, the
+contract a compositor imports — builds with kavach absent from both the manifest
+and the include chain:
+
+```sh
+rm -rf lib && cyrius deps --no-default-features       # 18 modules; no kavach/sigil/sandhi/tls
+cyrius build --no-default-features programs/surface_smoke.cyr build/mehman-surface-smoke
+./build/mehman-surface-smoke
+```
+
+⚠ Two halves, and the toolchain cannot join them: `--no-default-features` (the
+manifest half) *and* `#define MEHMAN_NO_SANDBOX 1` (the source half, set by
+`programs/surface_smoke.cyr` itself). `[features]` gates dependency resolution
+only. Building the sandbox-**on** entry point with `--no-default-features` fails by
+design. The `rm -rf lib` is not optional — vendoring is additive and never prunes,
+so resolving over a default `lib/` still sees all 69 heavy modules. Re-run plain
+`cyrius deps` afterwards to get back to the default build.
 
 ## Consume mehman's surface contract (no kavach)
 

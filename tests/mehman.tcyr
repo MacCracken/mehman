@@ -67,13 +67,18 @@ fn main() {
     var spec = guest_spec_new("/bin/true", caps_swallow_default());
     assert_eq(mehman_sandbox_run_guest(spec, code_slot), MehmanError.OK, "trivial foreign binary runs + reaps clean");
     assert_eq(load64(code_slot), 0, "kavach exec status 0 (ran + output captured)");
-    # a second, distinct foreign binary also runs + reaps cleanly. Its captured
-    # status is 0 too — kavach's PROCESS backend reports capture-success, NOT the
-    # guest's own exit code: /bin/false exits 1, but that WEXITSTATUS is not
-    # propagated by kavach's exec_capture path (documented contract, not a bug here).
+    # a second, distinct foreign binary also runs + reaps cleanly, and its captured
+    # status is now the guest's REAL exit code: /bin/false exits 1, and mehman
+    # reports 1. ⚠ This assertion read `0` until v1.0.2 and was CORRECT then —
+    # kavach's PROCESS backend discarded WEXITSTATUS until kavach 3.11.4 routed
+    # both the confined and unconfined paths through `confine_capture`. mehman's
+    # declared tag was 3.11.0, four patches behind, so the old expectation stayed
+    # green in CI while the local `path = "../kavach"` build had already flipped.
+    # Do not "restore" the 0 — a sandbox host that cannot tell a failed guest from
+    # a successful one is the defect kavach fixed. See CHANGELOG 1.0.2.
     store64(code_slot, 0 - 1);
     assert_eq(mehman_sandbox_run_guest(guest_spec_new("/bin/false", caps_swallow_default()), code_slot), MehmanError.OK, "second foreign binary runs + reaps clean");
-    assert_eq(load64(code_slot), 0, "kavach reports capture-success, not guest WEXITSTATUS");
+    assert_eq(load64(code_slot), 1, "guest's real WEXITSTATUS is propagated (/bin/false -> 1)");
 
     # ----- surface.cyr — M2 surface descriptor foundation ---------------
     test_group("surface.cyr — M2 foreign-surface descriptor");

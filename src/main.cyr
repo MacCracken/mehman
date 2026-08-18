@@ -34,15 +34,40 @@
 # sibling files above as the milestones land (see docs/development/roadmap.md);
 # programs/smoke.cyr proves the include chain compiles end-to-end.
 
-# --- module include chain (uncomment as each module lands) ---
+# --- module include chain ---
 # Ordered for Cyrius single-pass forward-reference resolution: the foundation
 # vocabulary (types.cyr) is included first so the domain modules can name it.
+#
+# ⚠ THE `sandbox` FEATURE HAS A SOURCE-SIDE HALF — `#define MEHMAN_NO_SANDBOX 1`.
+# `[features] sandbox = ["kavach"]` in cyrius.cyml gates only whether `cyrius deps`
+# VENDORS `lib/kavach.cyr`; it cannot gate an `include` line, because the toolchain
+# has no feature→`#define` bridge (the `[features]` table is read solely by the dep
+# resolver's `_dep_feature_active` gate — 6.5.27 `cbt/deps.cyr`). So the two halves
+# must be set TOGETHER: an entry point built `--no-default-features` must also
+# `#define MEHMAN_NO_SANDBOX 1` before including this file, or the guarded includes
+# below name a file `cyrius deps` deliberately did not vendor
+# (`error: cannot open include file: lib/kavach.cyr`).
+#
+#   entry point                    manifest half            source half
+#   ---------------------------    ---------------------    -------------------------
+#   programs/smoke.cyr             default (sandbox on)     (none — full chain)
+#   programs/surface_smoke.cyr     --no-default-features    #define MEHMAN_NO_SANDBOX 1
+#
+# The define is set by the ENTRY FILE, not by a CI flag, so `surface_smoke.cyr`
+# builds to the light chain however it is invoked — a `-D` on the command line
+# would make the wrong build the silent default. Both entry points are built in CI
+# (`.github/workflows/ci.yml`); see docs/adr/0007-make-the-sandbox-off-build-real.md
+# for why the surface-only configuration is a supported build, not an aspiration.
 include "src/types.cyr"        # foundation vocabulary: error / caps / guest spec
-include "lib/kavach.cyr"       # kavach 3.6.0 sandbox-execution surface (dist bundle)
+#ifndef MEHMAN_NO_SANDBOX
+include "lib/kavach.cyr"       # kavach sandbox-execution surface (dist bundle)
 include "src/sandbox.cyr"      # M1: kavach-sandboxed foreign host
+#endif
 include "src/surface.cyr"      # M2 foundation: foreign-surface descriptor (capture/handoff deferred)
 include "src/shim.cyr"         # M3 foundation: per-foreign-ABI event translation (delivery deferred)
-include "src/guest.cyr"        # M4: guest lifecycle — spawn / map / run / evict
+#ifndef MEHMAN_NO_SANDBOX
+include "src/guest.cyr"        # M4: guest lifecycle — spawn / map / run / evict (kavach: persistent_*)
+#endif
 
 # The scaffold sentinel (mehman_scaffold_ok) is retired: src/guest.cyr is now the
 # real public surface, so the header no longer needs a proof-of-compile stub.

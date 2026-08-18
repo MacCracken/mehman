@@ -1,7 +1,27 @@
 # 0002 — Consume kavach 3.6.0 as a dist bundle; land the M1 sandboxed foreign host
 
-**Status**: Accepted
+**Status**: Accepted — **constraint 2 superseded upstream at mehman v1.0.2**
 **Date**: 2026-07-03
+
+> ⚠ **Superseding note (2026-08-17, mehman v1.0.2).** The decision recorded below
+> stands; one of its two load-bearing *facts* no longer holds. **Constraint 2 —
+> "kavach's PROCESS backend does not propagate the guest's exit status" — is
+> resolved.** kavach **3.11.4** routed both the confined and unconfined capture
+> paths through `confine_capture`, which decodes the wait status, so
+> `mehman_sandbox_run_guest`'s `out_exit_code` is now the guest's real
+> `WEXITSTATUS` (`/bin/false` → 1) rather than the coarse 0/1 exec status this
+> ADR designed around. The "Consequences" acceptance criterion that M1 ship with
+> the coarse status *documented as not being WEXITSTATUS* was met at the time and
+> is now obsolete.
+>
+> ⛔ It took four patch releases to notice, for a reason worth recording: mehman's
+> declared `[deps.kavach] tag` was **3.11.0**, and local builds resolve through
+> `path = "../kavach"`, which wins. So the tag — the thing CI actually compiles —
+> was pinned before the change while developers built against a kavach that had
+> already made it. This is the mirror image of the v1.0.1 incident, where the path
+> hid a *fixed* source behind a *stale tag*. Same root cause: **a `path` override
+> disables the tag as a test.** Constraint 1 (transitive stdlib is the consumer's
+> responsibility) is unchanged and still governs.
 
 ## Context
 

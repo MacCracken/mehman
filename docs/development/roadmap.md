@@ -45,9 +45,10 @@ kavach's PROCESS backend; 28-assert suite green).
 > (plus kavach's transitive stdlib) and drives the sandbox lifecycle. The former
 > blocker (kavach not consumable) is resolved — see
 > [ADR 0002](../adr/0002-consume-kavach-3.6.0-and-land-m1.md), following on from
-> [ADR 0001](../adr/0001-defer-m1-until-kavach-is-consumable.md). Caveat: kavach's
-> PROCESS backend does not propagate the guest's `WEXITSTATUS`; M1 surfaces a
-> coarse exec status only.
+> [ADR 0001](../adr/0001-defer-m1-until-kavach-is-consumable.md). ✅ The
+> `WEXITSTATUS` caveat is **RESOLVED upstream** as of v1.0.2: kavach 3.11.4
+> decodes the guest's real exit status on both capture paths, so M1 now surfaces
+> the guest's own exit code rather than a coarse exec status.
 
 ### M2 — Foreign-surface capture (v0.3.0) — ✅ shipped 2026-07-03
 
@@ -64,6 +65,10 @@ buffer aethersafha's `foreign.cyr` backs a window with; 58-assert suite green).
 > (`foreign.cyr`: guest spec + surface + hosted window + `foreign_run`) and wires
 > `foreign_run` to this capture. mehman's surface/type contract is also consumable
 > standalone (kavach feature-gated, [ADR 0003](../adr/0003-feature-gate-kavach-for-standalone-surface-consumption.md)).
+> ⚠ That standalone claim was **unbuildable until v1.0.2** — the entry point ADR
+> 0003 named did not exist and the configuration did not compile. It is now built
+> and run on every push (`programs/surface_smoke.cyr`, CI `surface-only`); see
+> [ADR 0007](../adr/0007-make-the-sandbox-off-build-real.md).
 > **Capture model is stdout-as-framebuffer** (MVP seam — [ADR 0004](../adr/0004-m2-surface-capture-stdout-as-framebuffer.md));
 > real pixel fidelity (shared-memory handoff or an M3 shim) is the follow-on.
 >

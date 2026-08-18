@@ -5,6 +5,22 @@
 
 ## Version
 
+**1.0.2** — cut 2026-08-18. Toolchain + dependency refresh: pin `6.5.5` → `6.5.27`,
+kavach `3.11.0` → `3.11.14`. Carries one semantics change inherited from kavach —
+`out_exit_code` is now the guest's real `WEXITSTATUS` (see the resolved caveat
+below). CI stopped running `cyrius lib sync --full`, so it now builds the same
+69-module dependency graph a consumer resolving mehman actually gets, instead of
+the full 102-module snapshot that was masking gaps. ⭐ And the **sandbox-off build
+now exists**: `--no-default-features` had never compiled since the feature landed
+(ADR 0003, 2026-07-03) — `[deps].stdlib` was a hand-copy of kavach's list missing
+`sakshi`, and `src/main.cyr` included `lib/kavach.cyr` unconditionally. Both
+fixed, `programs/surface_smoke.cyr` added, CI gates it. Build, smoke, surface
+smoke, **109 asserts**, 3 benches and fuzz all green. See
+[ADR 0007](../adr/0007-make-the-sandbox-off-build-real.md).
+
+**1.0.1** — cut 2026-08-02. Cut the `os_backend_name` fix that had been sitting
+uncut in `src/` since kavach 3.8.2, breaking every consumer resolving by tag.
+
 **1.0.0** — cut 2026-07-03. **The swallow stage is complete.** A foreign-ABI app
 runs sandboxed under kavach (M1), its surface is captured for the compositor (M2),
 compositor events translate + deliver to a **live** guest (M3), and the
@@ -17,15 +33,43 @@ benchmarks, a green downstream consumer (aethersafha), complete CHANGELOG, and a
 
 ## Toolchain
 
-- **Cyrius pin**: `6.3.40` (in `cyrius.cyml [package].cyrius`) — matches the active
-  wrapper and the ecosystem (aethersafha, kavach). Build + 58-assert suite green.
+- **Cyrius pin**: `6.5.27` (in `cyrius.cyml [package].cyrius`) — matches the active
+  wrapper and the ecosystem (kavach 3.11.14 is on the same pin). Build + smoke +
+  **109-assert** suite + 3 benches + fuzz green. (Was `6.3.40` through v1.0.0 and
+  `6.5.5` through v1.0.1.)
+- **kavach**: `3.11.14` (`[deps.kavach].tag`, optional behind the default-on
+  `sandbox` feature). Was `3.11.0` — four patches behind kavach 3.11.4's
+  exit-code change, which is how the stale `WEXITSTATUS` contract survived a
+  release. ⚠ `path = "../kavach"` sits alongside the tag and **wins locally**, so
+  the tag is only actually exercised by CI: when bumping, trust CI over a local
+  build.
+- **`lib/` model**: `cyrius deps` alone, from an empty tree — **69 modules**
+  default, **18** with `--no-default-features`. Do not use `cyrius lib sync
+  --full`; it copies the whole 102-module snapshot and hides undeclared
+  dependencies from the build (removed from CI at v1.0.2). ⚠ Vendoring is
+  ADDITIVE — `cyrius deps` never prunes, so a sandbox-off resolve run over a
+  default `lib/` still sees all 69 heavy modules. Re-resolve from an empty tree
+  when switching configurations; this is why CI runs the two as separate jobs.
+- **`[deps].stdlib` is mehman's OWN needs only** — six leaves (`alloc`, `assert`,
+  `bench`, `string`, `syscalls`, `vec`). kavach's transitive set arrives from its
+  `dist/kavach.deps` sidecar, automatically. ⛔ Do not re-add kavach's leaves by
+  hand: that hand-copy is what drifted (missing `sakshi`) and broke the
+  sandbox-off build for six weeks (v1.0.2, ADR 0007).
+- **Manifest constraint**: `[deps]` must start within the first **4095 bytes** of
+  `cyrius.cyml` — `_auto_deps` scans only that prefix, and past it nothing is
+  prepended with no diagnostic naming the manifest. Currently at byte **917**.
 
 ## Source
 
 - `src/main.cyr` — library header / module-include chain: `src/types.cyr` →
   `lib/kavach.cyr` (dist bundle) → `src/sandbox.cyr` → `src/surface.cyr` →
   `src/shim.cyr` → `src/guest.cyr`. The `mehman_scaffold_ok` sentinel is **retired**
-  (guest.cyr is the real public surface).
+  (guest.cyr is the real public surface). ⚠ The kavach-dependent three
+  (`lib/kavach.cyr`, `sandbox`, `guest`) sit behind `#ifndef MEHMAN_NO_SANDBOX` —
+  the **source half** of the `sandbox` feature, which `[features]` cannot set for
+  you (it gates dep resolution only; there is no feature→`#define` bridge). A
+  sandbox-off build needs `--no-default-features` AND that define; the include
+  chain carries a table of which entry point takes which.
 - `src/types.cyr` — **foundation vocabulary** (dependency-free):
   - `MehmanError` enum + `mehman_err_name` / `mehman_err_print`.
   - `MehmanCaps` (bounded capability set) + `caps_swallow_default` /
@@ -69,11 +113,16 @@ a consumable `dist/kavach.cyr` bundle (the former blocker — kavach not consuma
 as a Cyrius library — is resolved). See
 [ADR 0002](../adr/0002-consume-kavach-3.6.0-and-land-m1.md).
 
-- **Known caveat**: kavach's PROCESS backend captures guest *output* via
-  `exec_capture` and reports a coarse exec status (0 = ran + captured, 1 = exec
-  failed) — it does **not** propagate the guest's own `WEXITSTATUS`. mehman's
-  `out_exit_code` surfaces that coarse status; true guest-exit propagation is a
-  future kavach concern.
+- **Resolved caveat (v1.0.2)**: kavach's PROCESS backend now propagates the
+  guest's own `WEXITSTATUS`. It used to report a coarse exec status (0 = ran +
+  captured, 1 = exec failed) because the unconfined path went through the stdlib
+  `exec_capture`, which discards the child's status; **kavach 3.11.4** routed
+  both the confined and unconfined paths through `confine_capture`, which decodes
+  it. mehman's `out_exit_code` is therefore the guest's real exit code.
+  ⚠ The stale contract survived a release because mehman's declared
+  `[deps.kavach] tag` was **3.11.0**, four patches behind the change, while local
+  builds resolved through `path = "../kavach"` — the same tag-vs-path split that
+  produced the 1.0.1 incident, in the opposite direction.
 - **Known-benign warnings** from the heavy kavach bundle (documented in kavach's
   README): `duplicate fn` (`syserr_*`/`err_*`, last-def-wins); a
   `lib/sandhi.cyr` arg-count warning on a credential/TLS path M1 does not
@@ -105,7 +154,8 @@ window with live guest content.
 Both halves are done. **Translation** (`src/shim.cyr`, dep-free): per-ABI encoders
 turn compositor input/resize/lifecycle events into the swallow-ABI byte wire.
 **Live delivery** (`src/guest.cyr`): `guest_start` launches a persistent live guest
-(kavach 3.7.0), `guest_send_input` / `guest_send_resize` shim-encode + stream events
+(kavach's persistent-guest model, added 3.7.0), `guest_send_input` /
+`guest_send_resize` shim-encode + stream events
 to its stdin, `guest_read` reads its output. M3's acceptance ("a guest receives
 input and resizes correctly") is **met** — verified end-to-end: an input event
 delivered to a running `/bin/cat` guest is read back byte-for-byte. See
@@ -139,22 +189,39 @@ pieces directly; adopting the handle is a follow-on).
   ~666 MiB/s; shim event translation ~13–14 ns/event); results in
   [`../benchmarks.md`](../benchmarks.md). Run: `cyrius bench tests/mehman.bcyr`.
 - `tests/mehman.fcyr` — fuzz stub
+- `programs/surface_smoke.cyr` — **the sandbox-off guard** (v1.0.2): 25 checks over
+  the light half (`types` / `surface` / `shim`) with kavach absent from both the
+  manifest and the include chain. Run:
+  `cyrius deps --no-default-features && cyrius build --no-default-features
+  programs/surface_smoke.cyr build/mehman-surface-smoke` — from an empty `lib/`.
+  ⚠ Its reach: a kavach reference in the light half hard-fails only on a
+  **reachable** path; an unreachable one is a warning the build survives, and
+  `--strict` does not upgrade it (measured).
 
 ## Dependencies
 
 Direct (declared in `cyrius.cyml`):
 
-- **kavach 3.7.0** — sandbox-execution surface (one-shot + persistent-guest),
+- **kavach 3.11.14** — sandbox-execution surface (one-shot + persistent-guest),
   **`optional = true`** behind the
   default-on `sandbox` feature (cyrius dependency-model lever 2). Consumed as
   `dist/kavach.cyr` via `[deps.kavach]` (git + `../kavach` path); pulls transitive
   **sigil** through kavach's own `[deps.sigil]`. A downstream consumer that does
   not enable `sandbox` skips it entirely (no kavach → sandhi → TLS cascade).
-- stdlib — mehman's own default-build set (kavach's transitive union). This is
-  mehman's build concern only; **consumers declare their own** (light) stdlib.
-- `lib/` is gitignored: `cyrius lib sync --full` (pinned snapshot) + `cyrius deps`
-  regenerate it. The no-kavach consumer path is verified by a clean-room consumer
-  (see [ADR 0003](../adr/0003-feature-gate-kavach-for-standalone-surface-consumption.md)).
+- stdlib — **six leaves of mehman's own** (`alloc`, `assert`, `bench`, `string`,
+  `syscalls`, `vec`); kavach's transitive union arrives from `dist/kavach.deps`.
+  This is mehman's build concern only; **consumers declare their own** stdlib.
+- `lib/` is gitignored: **`cyrius deps` alone** regenerates it (69 modules) — from
+  an empty tree on a pin move. ⛔ Do **not** use `cyrius lib sync --full`: it copies
+  the entire 102-module pinned snapshot, so the build resolves modules the manifest
+  never declared and a dependency gap that breaks real consumers stays invisible.
+  Removed from both CI workflows at v1.0.2. The no-kavach consumer path is
+  documented by a clean-room consumer
+  (see [ADR 0003](../adr/0003-feature-gate-kavach-for-standalone-surface-consumption.md))
+  **and, since v1.0.2, built on every push** by the `surface-only` CI job
+  (`cyrius deps --no-default-features` → 18 modules → build + run
+  `programs/surface_smoke.cyr`). See
+  [ADR 0007](../adr/0007-make-the-sandbox-off-build-real.md).
 
 ## Consumers
 

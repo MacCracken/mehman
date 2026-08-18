@@ -33,13 +33,21 @@ jobs:
             CYRIUS_VERSION="$CYRIUS_VERSION" sh
           echo "$HOME/.cyrius/bin" >> "$GITHUB_PATH"
 
-      - name: Vendor stdlib snapshot
-        # lib/ is gitignored (regenerated from the pin), so vendor the pinned
-        # stdlib snapshot before resolving deps. Required since the toolchain
-        # stopped auto-vendoring stdlib on bare `cyrius deps`.
-        run: cyrius lib sync --full
-
       - name: Resolve dependencies
+        # `cyrius deps` vendors the declared `[deps].stdlib` set into lib/
+        # (gitignored) plus each active `[deps.*]` module and the stdlib leaves
+        # its `dist/*.deps` sidecar names. That IS the whole vendor step.
+        #
+        # ⛔ A `cyrius lib sync --full` used to run before this, justified as
+        # "required since the toolchain stopped auto-vendoring stdlib on bare
+        # `cyrius deps`". That is no longer true, and keeping it was actively
+        # harmful: `--full` copies the ENTIRE pinned snapshot (102 modules) so CI
+        # compiled against modules the manifest never asked for. A real consumer
+        # resolving mehman gets only the declared set (+ each active dep's sidecar
+        # leaves) — so CI could stay green on a dependency gap that broke everyone
+        # downstream. Removed at v1.0.2; CI now builds the same graph a consumer
+        # does. Do not reinstate it to fix a missing symbol — declare the module
+        # in `[deps].stdlib` instead.
         run: cyrius deps
 
       - name: Build
@@ -54,3 +62,54 @@ jobs:
         # stub didn't exist (Issue 1) and also wouldn't ever exercise
         # tests/${proj}.tcyr.
         run: cyrius test
+
+  surface-only:
+    name: Surface-only build (sandbox off)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4 (pinned — CVE-21)
+
+      - name: Install Cyrius toolchain
+        # Same canonical installer + same pin-is-the-source-of-truth rule as the
+        # job above; see its comment for the rationale.
+        run: |
+          set -e
+          CYRIUS_VERSION="$(grep '^cyrius = ' cyrius.cyml | head -1 | sed 's/cyrius = "\(.*\)"/\1/')"
+          echo "Installing Cyrius $CYRIUS_VERSION"
+          curl -sSf https://raw.githubusercontent.com/MacCracken/cyrius/main/scripts/install.sh | \
+            CYRIUS_VERSION="$CYRIUS_VERSION" sh
+          echo "$HOME/.cyrius/bin" >> "$GITHUB_PATH"
+
+      # ⭐ WHY THIS IS A SEPARATE JOB, NOT A STEP IN THE ONE ABOVE.
+      # It must resolve into an EMPTY lib/. `cyrius deps` vendors additively — it
+      # never prunes — so running the sandbox-off resolve after the default one
+      # leaves all 69 heavy modules sitting in lib/, and the build then links
+      # against modules the sandbox-off manifest never asked for. That is the
+      # `lib sync --full` failure mode wearing a different hat, and it would make
+      # this guard vacuous. A separate job gets its own checkout, hence its own
+      # empty lib/. Do not merge the two jobs.
+      - name: Resolve dependencies (no default features)
+        # Skips the optional `[deps.kavach]` entirely — no clone, no module copy,
+        # no `dist/kavach.deps` sidecar. What lands in lib/ is EXACTLY the six
+        # leaves `[deps].stdlib` declares (+ their platform variants): 18 modules,
+        # no kavach / sigil / sandhi / sakshi / tls / thread_local / async.
+        run: cyrius deps --no-default-features
+
+      - name: Build surface-only entry point
+        # The other half of the switch is `#define MEHMAN_NO_SANDBOX 1`, set by the
+        # entry file itself (src/main.cyr's include chain explains why it cannot be
+        # derived from the feature). This build is what proves mehman's light half
+        # — types + surface + shim, the contract aethersafha imports — carries no
+        # kavach reference and no undeclared stdlib leaf. It failed for the whole
+        # life of the feature before v1.0.2; see ADR 0007.
+        run: |
+          mkdir -p build
+          cyrius build --no-default-features \
+            programs/surface_smoke.cyr \
+            build/${{ github.event.repository.name }}-surface-smoke
+
+      - name: Run surface-only smoke
+        # Exit 0 only if every light-half check passed; each failure is printed to
+        # stderr first, so a red run names the broken contract rather than just
+        # the exit code.
+        run: ./build/${{ github.event.repository.name }}-surface-smoke

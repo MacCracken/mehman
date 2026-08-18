@@ -21,7 +21,8 @@ Decisions about mehman — what we chose, the context, and the consequences we a
 
 - [0001 — Land the foundation vocabulary dependency-free; defer M1 until kavach is consumable](0001-defer-m1-until-kavach-is-consumable.md) — *Accepted, 2026-07-02*
 - [0002 — Consume kavach 3.6.0 as a dist bundle; land the M1 sandboxed foreign host](0002-consume-kavach-3.6.0-and-land-m1.md) — *Accepted, 2026-07-03 (resolves 0001's M1 deferral)*
-- [0003 — Feature-gate kavach so mehman's surface/types are consumable standalone](0003-feature-gate-kavach-for-standalone-surface-consumption.md) — *Accepted, 2026-07-03*
+- [0003 — Feature-gate kavach so mehman's surface/types are consumable standalone](0003-feature-gate-kavach-for-standalone-surface-consumption.md) — *Accepted, 2026-07-03 (one claim corrected by 0007)*
 - [0004 — M2 surface capture: stdout-as-framebuffer (the swallow-stage MVP)](0004-m2-surface-capture-stdout-as-framebuffer.md) — *Accepted, 2026-07-03*
 - [0005 — M3 protocol shim: a per-ABI event wire, with delivery deferred](0005-m3-shim-event-wire-and-deferred-delivery.md) — *Accepted, 2026-07-03*
 - [0006 — M3 live event delivery via a kavach persistent-guest model](0006-m3-live-delivery-persistent-guest.md) — *Accepted, 2026-07-03 (resolves 0005's deferral)*
+- [0007 — Make the sandbox-off build real rather than claimed](0007-make-the-sandbox-off-build-real.md) — *Accepted, 2026-08-18 (makes 0003's claimed configuration executable)*

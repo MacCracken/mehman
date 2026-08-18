@@ -46,12 +46,21 @@ jobs:
             CYRIUS_VERSION="$CYRIUS_VERSION" sh
           echo "$HOME/.cyrius/bin" >> "$GITHUB_PATH"
 
-      - name: Vendor stdlib snapshot
-        # lib/ is gitignored (regenerated from the pin); vendor the pinned
-        # stdlib snapshot before resolving deps.
-        run: cyrius lib sync --full
-
       - name: Resolve dependencies
+        # `cyrius deps` vendors the declared `[deps].stdlib` set into lib/
+        # (gitignored) plus each active `[deps.*]` module and the stdlib leaves
+        # its `dist/*.deps` sidecar names. That IS the whole vendor step.
+        #
+        # ⛔ A `cyrius lib sync --full` used to run before this, justified as
+        # "required since the toolchain stopped auto-vendoring stdlib on bare
+        # `cyrius deps`". That is no longer true, and keeping it was actively
+        # harmful: `--full` copies the ENTIRE pinned snapshot (102 modules) so CI
+        # compiled against modules the manifest never asked for. A real consumer
+        # resolving mehman gets only the declared set (+ each active dep's sidecar
+        # leaves) — so CI could stay green on a dependency gap that broke everyone
+        # downstream. Removed at v1.0.2; CI now builds the same graph a consumer
+        # does. Do not reinstate it to fix a missing symbol — declare the module
+        # in `[deps].stdlib` instead.
         run: cyrius deps
 
       - name: Build

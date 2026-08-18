@@ -1,0 +1,108 @@
+# mehman SURFACE-ONLY smoke test — the sandbox-off build.
+#
+# WHAT THIS GUARDS
+# ----------------
+# mehman's consumable surface splits in two. The heavy half (`src/sandbox.cyr`,
+# `src/guest.cyr`) needs kavach and drags the kavach → sandhi → TLS bundle with
+# it. The light half (`src/types.cyr`, `src/surface.cyr`, `src/shim.cyr`) is the
+# CONTRACT aethersafha imports — pure in-process data modeling, no kavach, no
+# net, no crypto. [ADR 0003](../docs/adr/0003-feature-gate-kavach-for-standalone-surface-consumption.md)
+# made that split real by putting `[deps.kavach]` behind the default-on `sandbox`
+# feature, so a consumer that does not enable `sandbox` never resolves kavach.
+#
+# ⛔ THAT SPLIT WAS UNTESTED FOR ITS ENTIRE LIFE. ADR 0003 named this file as the
+# sandbox-off entry point and it did not exist; nothing in CI ever built the
+# configuration; and it did not compile — for two independent reasons, either of
+# which alone breaks it (see [ADR 0007](../docs/adr/0007-make-the-sandbox-off-build-real.md)).
+# This file is that configuration's ONLY executable guard: if the light half ever
+# grows a kavach reference, or `[deps].stdlib` ever drifts from what the light
+# half actually needs, this build fails and the default build does not.
+#
+# ⚠ BOTH HALVES OF THE SWITCH ARE SET HERE + AT THE COMMAND LINE. The `#define`
+# below drops the kavach/sandbox/guest includes from `src/main.cyr`;
+# `--no-default-features` stops `cyrius deps` vendoring `lib/kavach.cyr` at all.
+# The toolchain has no feature→`#define` bridge to tie them together — see the
+# include-chain comment in `src/main.cyr`.
+#
+# Build: cyrius build --no-default-features programs/surface_smoke.cyr build/mehman-surface-smoke
+# Run:   ./build/mehman-surface-smoke   (exit 0 on success, 1 on any failed check)
+#
+# Deliberately uses NO stdlib beyond {alloc, io, string, syscalls}: the narrower
+# this program's own footprint, the more of a failure here is attributable to
+# mehman's light modules rather than to the harness.
+
+#define MEHMAN_NO_SANDBOX 1
+
+include "src/main.cyr"
+
+var _fails = 0;
+
+# Local check helper rather than stdlib `assert`: keeps this program's stdlib
+# footprint to the four leaves named above, and reports EVERY failure instead of
+# aborting on the first.
+fn check(cond, what): i64 {
+    if (cond == 1) { return 0; }
+    _fails = _fails + 1;
+    sys_write(2, "surface_smoke FAIL: ", 20);
+    sys_write(2, what, strlen(what));
+    sys_write(2, "\n", 1);
+    return 1;
+}
+
+fn main() {
+    alloc_init();
+
+    # --- types.cyr: the bounded capability contract -------------------------
+    var caps = caps_swallow_default();
+    check(caps != 0, "caps_swallow_default allocates");
+    check(caps_is_swallow_valid(caps), "default swallow caps are valid");
+    check(caps_is_swallow_valid(0) == 0, "null caps are invalid");
+
+    var spec = guest_spec_new("/bin/true", caps);
+    check(spec != 0, "guest_spec_new allocates");
+    check(guest_spec_is_valid(spec), "a /bin/true spec is valid");
+    check(guest_spec_is_valid(0) == 0, "a null spec is invalid");
+    check(mehman_err_name(MehmanError.OK) != 0, "err_name(OK) is non-null");
+
+    # --- surface.cyr: the descriptor aethersafha imports --------------------
+    var stride = 32 * mehman_format_bpp(MehmanPixelFormat.XRGB8888);
+    var buf = alloc(stride * 32);
+    check(buf != 0, "surface buffer allocates");
+    var surf = surface_new(32, 32, MehmanPixelFormat.XRGB8888, stride, buf);
+    check(surface_is_valid(surf), "a 32x32 XRGB8888 surface is valid");
+    check(surface_size_bytes(surf) == stride * 32, "surface_size_bytes is stride*height");
+    check(surface_is_valid(0) == 0, "a null surface is invalid");
+
+    # blit shorter-than-buffer input: the copied prefix survives, the tail zeroes
+    var n = surface_blit_bytes(surf, "AB", 2);
+    check(n == 2, "surface_blit_bytes reports bytes written");
+    check(load8(buf + 0) == 65, "blit copied byte 0");
+    check(load8(buf + 1) == 66, "blit copied byte 1");
+    check(load8(buf + 2) == 0, "blit zero-filled the uncovered tail");
+
+    # --- shim.cyr: the M3 event wire ----------------------------------------
+    var wire[16];
+    var ev = shim_input_key(0x04, 1);
+    check(ev != 0, "shim_input_key allocates");
+    check(shim_encode_input(MehmanAbi.ABI_SWALLOW, ev, &wire) == 3, "key event is 3 wire bytes");
+    check(load8(&wire + 0) == SHIM_TAG_KEY, "key event carries the KEY tag");
+    check(load8(&wire + 1) == 0x04, "key event carries the HID usage");
+
+    check(shim_encode_resize(MehmanAbi.ABI_SWALLOW, 1920, 1080, &wire) == 5, "resize is 5 wire bytes");
+    check(load8(&wire + 0) == SHIM_TAG_RESIZE, "resize carries the RESIZE tag");
+    check(load8(&wire + 1) == (1920 & 0xFF), "resize width low byte");
+    check(load8(&wire + 2) == ((1920 >> 8) & 0xFF), "resize width high byte");
+
+    check(shim_encode_lifecycle(MehmanAbi.ABI_SWALLOW, MehmanLifecycle.LIFECYCLE_MAP, &wire) == 2, "lifecycle is 2 wire bytes");
+    check(shim_encode_input(99, ev, &wire) == 0, "an unknown ABI encodes nothing");
+
+    if (_fails != 0) {
+        sys_write(2, "mehman surface smoke FAILED\n", 28);
+        return 1;
+    }
+    println("mehman surface smoke ok (sandbox off — no kavach)");
+    return 0;
+}
+
+var r = main();
+syscall(SYS_EXIT, r);

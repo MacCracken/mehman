@@ -1,6 +1,6 @@
 # 0003 — Feature-gate kavach so mehman's surface/types are consumable standalone
 
-**Status**: Accepted
+**Status**: Accepted (one factual claim corrected by [0007](0007-make-the-sandbox-off-build-real.md) — see the marked block below)
 **Date**: 2026-07-03
 
 ## Context
@@ -35,6 +35,18 @@ resolves to 21 lib files with no kavach and builds + runs against `MehmanSurface
 own `lib/` carries a pinned-snapshot `sakshi` that misses `sakshi_span_*` — a
 version skew that only a consumer's own light `lib/` avoids.)
 
+> ⛔ **CORRECTED BY [ADR 0007](0007-make-the-sandbox-off-build-real.md) (2026-08-18) —
+> the parenthetical above is wrong, and being wrong is why it did damage.** The
+> vendored `sakshi` **defines** `sakshi_span_*` fine; there is no version skew.
+> The symbols were undefined because `sakshi` was never in `[deps].stdlib`, so
+> `cyrius deps` never prepended its `include` — the sidecar of the *active* kavach
+> dep was quietly supplying it, and turning the feature off removed the sidecar.
+> A version-skew story is unfixable and excuses the gap; a missing manifest line
+> is a one-word fix. That excuse is what let this ADR name an entry point
+> (`programs/surface_smoke.cyr`) that did not exist, in a configuration that did
+> not compile, for six weeks. The mehman-side build **is** now a faithful guard
+> and runs in CI; see ADR 0007.
+
 ## Consequences
 
 - **Positive** — aethersafha (or any consumer) can now consume mehman's surface
@@ -44,10 +56,17 @@ version skew that only a consumer's own light `lib/` avoids.)
   mehman is the ecosystem's first feature-deps adopter.
 - **Negative** — mehman's *own* default build still carries kavach + the heavy
   stdlib union (the sandbox host needs them); only *consumers* get the light path.
+  ⚠ Amended by ADR 0007: mehman's own build no longer *declares* that union — six
+  leaves of its own, with kavach's set coming from `dist/kavach.deps`. It still
+  links the union in the default configuration; it just no longer maintains a
+  hand-copy of the list, which is what had drifted.
 - **Neutral** — CI now runs `cyrius lib sync --full` before `cyrius deps` (the
   gitignored `lib/` must be re-vendored, and the newer toolchain no longer
   auto-vendors stdlib on bare `cyrius deps`). Consumers declare their own light
   stdlib; mehman does not force one on them.
+  ⛔ **Reversed at v1.0.2** — `cyrius deps` alone vendors the declared set, and
+  `--full` was copying the entire 102-module snapshot, hiding exactly the kind of
+  undeclared-leaf gap ADR 0007 then found. Removed from both workflows.
 
 ## Alternatives considered
 
