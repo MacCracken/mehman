@@ -4,6 +4,35 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-09-29
+
+### Changed — kavach `3.12.5` → `3.13.1`, toolchain `6.6.2` → `6.6.10`
+
+Build, both smokes and the test suite re-verified at the new pins (see the Fixed entry).
+
+### Fixed — two `struct SpawnedProcess` layouts in the sandbox build
+
+kavach 3.12.5's bundle declares `struct SpawnedProcess` twice with different layouts. The
+compiler only warns (`lib/kavach.cyr:11411:8: struct 'SpawnedProcess' redefined with a
+different layout — the FIRST definition is the one used`) and the build still reports OK, so
+every field access through the second definition used the first one's offsets. kavach
+de-duplicated it at 3.12.9. The pin moves to kavach **3.13.1**, which needs cyrius ≥ 6.6.6,
+so the toolchain moves to the released **6.6.10**. No mehman source change.
+
+`lib/kavach.cyr` was resolved from the TAG, not from `path = "../kavach"`: the sibling
+checkout is two commits past 3.13.1, and `path` wins over `tag`. The vendored bundle is
+byte-identical to kavach's `3.13.1:dist/kavach.cyr`, and `cyrius.lock` is the tag-mode lock
+CI writes (`commit 472d6ca… kavach … 3.13.1`).
+
+`dist/mehman.deps` shrinks from 22 leaves to mehman's own 6. That is cyrius 6.6.10's
+`distlib`, not the kavach bump: the same toolchain writes the same 6 with the old pin.
+kavach's leaves come from kavach's own sidecar.
+
+### Added — CI fails on a struct layout redefinition
+
+The Build step now fails when the compiler reports `redefined with a different layout`,
+because the build itself exits 0 on it. Verified to fail against the 3.12.5 pin.
+
 ## [1.0.3] - 2026-09-11
 
 ### Changed

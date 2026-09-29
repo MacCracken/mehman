@@ -51,9 +51,21 @@ jobs:
         run: cyrius deps
 
       - name: Build
+        # 1.0.4: kavach <= 3.12.8 declared `struct SpawnedProcess` twice with
+        # different layouts. The compiler only WARNS (the first definition wins
+        # for sizeof and every field offset) and the build stays OK, so a green
+        # Build step hid it. A layout redefinition anywhere in the unit is a
+        # wrong-offset bug, so it fails the job here.
         run: |
           mkdir -p build
-          cyrius build programs/smoke.cyr build/${{ github.event.repository.name }}-smoke
+          rc=0
+          out=$(cyrius build programs/smoke.cyr build/${{ github.event.repository.name }}-smoke 2>&1) || rc=$?
+          printf '%s\n' "$out"
+          [ "$rc" -eq 0 ] || exit "$rc"
+          if printf '%s\n' "$out" | grep -q 'redefined with a different layout'; then
+              echo "::error::a struct is redefined with a different layout (see above)"
+              exit 1
+          fi
 
       - name: Test
         # v5.6.28: bare `cyrius test` picks up the [build].test entry
