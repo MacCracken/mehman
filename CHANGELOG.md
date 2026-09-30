@@ -28,6 +28,17 @@ CI writes (`commit 472d6ca… kavach … 3.13.1`).
 `distlib`, not the kavach bump: the same toolchain writes the same 6 with the old pin.
 kavach's leaves come from kavach's own sidecar.
 
+### Fixed — `src/sandbox.cyr` named two kavach enum members by stale spellings
+
+- `Backend.PROCESS` (twice) is now `KavachBackend.PROCESS`, and `KavachError.OK` is now
+  `KavachError.KAVACH_ERR_OK`. kavach renamed `enum Backend` to `KavachBackend`, and its error
+  members are `KAVACH_ERR_*`. Up to 6.6.10 the compiler ignored the qualifier of `X.NAME`, so
+  both still compiled. `.OK` resolved to whichever global `OK` came last, which is
+  `MehmanError.OK`. It only worked because both values are 0. cyrius 6.6.11 checks the
+  qualifier and refuses both spellings (`'Backend' is not an enum`, `'OK' is not a variant of
+  'KavachError'`). On 6.6.10 the fixed source builds a binary byte-identical to the old one;
+  on 6.6.11 it now builds at all. The toolchain pin stays `6.6.10`.
+
 ### Added — CI fails on a struct layout redefinition
 
 The Build step now fails when the compiler reports `redefined with a different layout`,
