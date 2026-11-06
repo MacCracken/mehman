@@ -103,7 +103,7 @@ jobs:
       - name: Resolve dependencies (no default features)
         # Skips the optional `[deps.kavach]` entirely — no clone, no module copy,
         # no `dist/kavach.deps` sidecar. What lands in lib/ is EXACTLY the six
-        # leaves `[deps].stdlib` declares (+ their platform variants): 18 modules,
+        # leaves `[deps].stdlib` declares (+ their platform variants): 20 modules,
         # no kavach / sigil / sandhi / sakshi / tls / thread_local / async.
         run: cyrius deps --no-default-features
 

@@ -5,6 +5,17 @@
 
 ## Version
 
+**1.0.5** — cut 2026-11-06. Toolchain + dependency refresh: pin `6.6.10` → `6.6.20`, kavach
+`3.13.1` → `3.13.3` (sigil `3.12.18` → `3.13.10`). No source change. `lib/` resolves to 69 modules
+(20 sandbox-off) and `dist/mehman.deps` is gone. Build, smoke, surface smoke, **109 asserts**, 3
+benches and fuzz all green, run as CI runs them. ⚠ kavach 3.13.3 cannot run uutils guests; see
+Toolchain.
+
+**1.0.4** — cut 2026-09-29. kavach → `3.13.1`, pin `6.6.2` → `6.6.10`: fixes two `struct
+SpawnedProcess` layouts, and two stale kavach enum spellings in `src/sandbox.cyr`.
+
+**1.0.3** — cut 2026-09-11. Pin `6.5.27` → `6.6.2`, no source change.
+
 **1.0.2** — cut 2026-08-18. Toolchain + dependency refresh: pin `6.5.5` → `6.5.27`,
 kavach `3.11.0` → `3.11.14`. Carries one semantics change inherited from kavach —
 `out_exit_code` is now the guest's real `WEXITSTATUS` (see the resolved caveat
@@ -33,18 +44,26 @@ benchmarks, a green downstream consumer (aethersafha), complete CHANGELOG, and a
 
 ## Toolchain
 
-- **Cyrius pin**: `6.5.27` (in `cyrius.cyml [package].cyrius`) — matches the active
-  wrapper and the ecosystem (kavach 3.11.14 is on the same pin). Build + smoke +
-  **109-assert** suite + 3 benches + fuzz green. (Was `6.3.40` through v1.0.0 and
-  `6.5.5` through v1.0.1.)
-- **kavach**: `3.11.14` (`[deps.kavach].tag`, optional behind the default-on
-  `sandbox` feature). Was `3.11.0` — four patches behind kavach 3.11.4's
-  exit-code change, which is how the stale `WEXITSTATUS` contract survived a
-  release. ⚠ `path = "../kavach"` sits alongside the tag and **wins locally**, so
-  the tag is only actually exercised by CI: when bumping, trust CI over a local
-  build.
+- **Cyrius pin**: `6.6.20` (in `cyrius.cyml [package].cyrius`), the last 6.6.x;
+  kavach 3.13.3 is on the same pin. Build + smoke + **109-assert** suite + 3 benches
+  + fuzz green.
+- **kavach**: `3.13.3` (`[deps.kavach].tag`, optional behind the default-on
+  `sandbox` feature), with sigil `3.13.10` through kavach's own `[deps.sigil]`.
+  kavach 3.14.0 and later pin cyrius 6.7.x.
+  ⚠ `path = "../kavach"` sits alongside the tag and **wins locally** below cyrius
+  6.7.6, so only CI exercises the tag. The sibling was at 3.14.6 at this cut, so a
+  plain `cyrius build`, `test` or `deps` in this tree vendors the sibling's bundle
+  and rewrites the tracked `cyrius.lock`. To verify a bump, run CI's steps in a copy
+  of the tracked files with no `../kavach` beside it, and do not commit a lock
+  written in path mode.
+- **⚠ uutils guests exit 1** (kavach 3.12.7 – 3.13.x). A pinned exec names its
+  program `/dev/fd/N`, and uutils' multicall binary refuses to run under that name.
+  `confine_capture` and `persistent_spawn` both pin, so both mehman guest paths are
+  affected: `/bin/true`, `/bin/echo` and `/bin/cat` on Ubuntu 25.10 and later,
+  including the 26.04 image behind `ubuntu-latest`. kavach 3.14.0 fixes it and needs
+  cyrius 6.7.9.
 - **`lib/` model**: `cyrius deps` alone, from an empty tree — **69 modules**
-  default, **18** with `--no-default-features`. Do not use `cyrius lib sync
+  default, **20** with `--no-default-features`. Do not use `cyrius lib sync
   --full`; it copies the whole 102-module snapshot and hides undeclared
   dependencies from the build (removed from CI at v1.0.2). ⚠ Vendoring is
   ADDITIVE — `cyrius deps` never prunes, so a sandbox-off resolve run over a
@@ -123,11 +142,10 @@ as a Cyrius library — is resolved). See
   `[deps.kavach] tag` was **3.11.0**, four patches behind the change, while local
   builds resolved through `path = "../kavach"` — the same tag-vs-path split that
   produced the 1.0.1 incident, in the opposite direction.
-- **Known-benign warnings** from the heavy kavach bundle (documented in kavach's
-  README): `duplicate fn` (`syserr_*`/`err_*`, last-def-wins); a
-  `lib/sandhi.cyr` arg-count warning on a credential/TLS path M1 does not
-  exercise; ~13 MB static scan tables (`CYRIUS_DCE=1` drops the unreachable
-  surface).
+- **Known-benign warnings** at this pin: the `sigil` stdlib-leaf note from `cyrius
+  deps`, sigil's static-storage array, and ~984 KB of static data (`CYRIUS_DCE=1`
+  drops the unreachable surface). **0 `duplicate fn`** across the smoke, test, bench
+  and fuzz units.
 
 ## M2 status — shipped (v0.3.0)
 
@@ -202,7 +220,7 @@ pieces directly; adopting the handle is a follow-on).
 
 Direct (declared in `cyrius.cyml`):
 
-- **kavach 3.11.14** — sandbox-execution surface (one-shot + persistent-guest),
+- **kavach 3.13.3** — sandbox-execution surface (one-shot + persistent-guest),
   **`optional = true`** behind the
   default-on `sandbox` feature (cyrius dependency-model lever 2). Consumed as
   `dist/kavach.cyr` via `[deps.kavach]` (git + `../kavach` path); pulls transitive
@@ -219,7 +237,7 @@ Direct (declared in `cyrius.cyml`):
   documented by a clean-room consumer
   (see [ADR 0003](../adr/0003-feature-gate-kavach-for-standalone-surface-consumption.md))
   **and, since v1.0.2, built on every push** by the `surface-only` CI job
-  (`cyrius deps --no-default-features` → 18 modules → build + run
+  (`cyrius deps --no-default-features` → 20 modules → build + run
   `programs/surface_smoke.cyr`). See
   [ADR 0007](../adr/0007-make-the-sandbox-off-build-real.md).
 

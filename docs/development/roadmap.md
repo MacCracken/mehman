@@ -145,8 +145,12 @@ cyrius no longer carries this repo's follow-ups; the items below were moved here
 applies from the cyrius version it names. Everything else that changes between this repo's pin and cyrius
 6.7.6 is in cyrius's `CHANGELOG.md` and `docs/development/ecosystem-migration.md`.
 
-- **Same-arity duplicate fns** — cyrius's 6.6.3 ecosystem sweep (2026-09-12) recorded **19** same-arity
-  duplicate-fn warning(s) in this repo's build (not re-derived since). Since cyrius **6.6.20** every call binds
-  the LAST definition (before, a non-tail call to an already-defined fn bound the first), so a duplicate whose
-  body differs changes what runs at the pin bump. Remove the duplicates or confirm the last definition is the
-  intended one.
+- ✅ **Same-arity duplicate fns** — closed at v1.0.5. cyrius's 6.6.3 sweep recorded **19** in this repo's build.
+  Since cyrius **6.6.20** every call binds the LAST definition, so a duplicate whose body differs changes what
+  runs. At the 6.6.20 pin the compiler reports **0 `duplicate fn`** for the smoke, test, bench and fuzz units.
+
+## Inherited at v1.0.5 — for the next kavach move
+
+- **uutils guests exit 1** — kavach's pinned exec (3.12.7 – 3.13.x) cannot run uutils binaries, on either mehman
+  guest path. kavach **3.14.0** fixes it and needs cyrius >= **6.7.9**, so it arrives with the move past 6.6.x.
+  See `state.md` § Toolchain.

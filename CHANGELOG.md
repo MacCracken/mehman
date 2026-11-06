@@ -4,6 +4,44 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.0.5] - 2026-11-06
+
+### Changed — toolchain `6.6.10` → `6.6.20`, kavach `3.13.1` → `3.13.3`
+
+kavach 3.13.3 is the release pinned to cyrius 6.6.20, and it moves sigil `3.12.18` → `3.13.10`.
+kavach 3.14.0 and later pin cyrius 6.7.x. No mehman source change.
+
+- **Resolved from the tag, not the sibling.** `path = "../kavach"` wins over `tag` below cyrius
+  6.7.6, and the sibling checkout is at 3.14.6. `lib/` and `cyrius.lock` were resolved with the
+  sibling out of the way. The vendored bundles are byte-identical to kavach's
+  `3.13.3:dist/kavach.cyr` and sigil's `3.13.10:dist/sigil.cyr`.
+- **`cyrius.lock` was regenerated from nothing.** A tag bump keeps the old tag's commit row, so the
+  file was deleted first. It now holds two commit rows, kavach 3.13.3 and sigil 3.13.10.
+- **`lib/` goes from 73 modules to 69.** kavach's `dist/kavach.deps` shrinks from 37 leaves to 16:
+  `args`, `fs`, `hashmap_fast` and `math` (with their platform variants) drop out, and `poison` and
+  `tls_hostid` come in. The sandbox-off resolve is 20 modules.
+- **`dist/mehman.deps` is deleted.** Since cyrius 6.6.18 `distlib` derives a sidecar only from what
+  compiling the bundle needs, and this bundle needs no stdlib leaf.
+
+Verified the way CI runs: a copy of the tracked files, an empty `lib/`, no sibling checkout. Build,
+smoke, surface smoke, **109 asserts**, 3 benches, fuzz, `cyrius distlib --check` and
+`cyrius deps --verify` (69 of 69) all pass. Interleaved bench runs against 1.0.4 on one box show no
+change: `surface_blit_bytes` 6.40 → 6.44 µs, `shim_encode_input` 9 ns, `shim_encode_resize` 15 ns.
+
+### Checked — duplicate fns under cyrius 6.6.20's last-definition rule
+
+From 6.6.20 every call binds a redefined fn's last definition, which can change what runs. cyrius's
+6.6.3 sweep recorded 19 same-arity duplicates in this repo. At this pin the compiler reports
+**0 `duplicate fn`** for `programs/smoke.cyr` and `tests/mehman.{tcyr,bcyr,fcyr}`, so nothing
+changes binding. The roadmap item is closed.
+
+### Known issue — uutils guests exit 1 (inherited from kavach)
+
+Since kavach 3.12.7 a pinned exec names its program `/dev/fd/N`, and uutils' multicall binary
+refuses to run under that name. `confine_capture` and `persistent_spawn` both pin, so a uutils
+binary fails as a guest on either mehman path. That reaches `/bin/true`, `/bin/echo` and `/bin/cat`
+on Ubuntu 25.10 and later. kavach 3.14.0 fixes it, and needs cyrius 6.7.9, above this pin.
+
 ## [1.0.4] - 2026-09-29
 
 ### Changed — kavach `3.12.5` → `3.13.1`, toolchain `6.6.2` → `6.6.10`
