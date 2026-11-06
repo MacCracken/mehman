@@ -1,5 +1,5 @@
-commit	06e51e78c0f5e21e3933eaaf9c8ddfa45aebddce	kavach	https://github.com/MacCracken/kavach.git	3.13.3
-commit	6d065dac81197895c1c5853b9e53ee33c4abfc5c	sigil	https://github.com/MacCracken/sigil.git	3.13.10
+commit	1ea4a5d7dc059368b0b6daae5afb0428cf8b827e	kavach	https://github.com/MacCracken/kavach.git	3.14.0
+commit	fb42c8a16a2420a664d5e56cabe54d44040c1045	sigil	https://github.com/MacCracken/sigil.git	3.13.11
 d6c9c0f7c7d952d3400865c4a6d8e7a3a5678aecf09836e2d031630a82b2e136  lib/alloc.cyr
 69e92cc4b67f1a936f94c92ce8a4c66673758b84dba385e96fbeaa46fa692b4c  lib/alloc_agnos.cyr
 62b090ca59dabcb9efc98677f495e04edf63a018105ccd0ac76f992e187cf4e6  lib/alloc_cx.cyr
@@ -26,7 +26,7 @@ fb3cba975974912b708a2c2055b8e9ffe5564dd0f2596c5618f6cce20a9cbc34  lib/fdlopen.cy
 c40f6aa6f1623ced7faee40f6212955c4a7167a801beb6c74396aa6509430895  lib/hashmap.cyr
 9bebf72eaa4c63aac80710f21d25310b89658bb8cc9f47a8a57ba16261fa0d5b  lib/hashseed.cyr
 194858b80a3a40c216a7879eb07652f1b91725cdf695ec7dbd4b206fc927e2b9  lib/io.cyr
-5f09b225ae9cbe24d39485cbb11ba160985413f7408a0be7a7732d78bce95f62  lib/kavach.cyr
+6e5d182a4594870fd658300cd5d2fa882b707e5d0c80b44e2714da74da44aa0c  lib/kavach.cyr
 f38092748e5a9197f7a526e54801fd15fab70d2a04d1c23f4f71003f564fb3d6  lib/keccak.cyr
 18c4b2c680e33d42cd2c294c18cfa2251f10a5ad32fc67a939fd3fce86141570  lib/mmap.cyr
 5c6de883e00fe73049ddff323513dc4f1d97fa8520638ac41a2ca057ca5582f2  lib/net.cyr

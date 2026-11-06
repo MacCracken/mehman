@@ -82,9 +82,15 @@ sandbox = ["kavach"]
 # here; re-verify this line against ../kavach/VERSION at every cut. That is the
 # 1.0.1 incident (a stale tag published for two cuts) and the 1.0.2 one (a tag four
 # patches behind a contract change) — see CHANGELOG.
+#
+# ⚠ THIS TAG'S OWN PIN (cyrius 6.7.9) IS ABOVE [package].cyrius, ON PURPOSE. 3.14.0's
+# bundle is 3.13.3's plus the pinned-exec fix and nothing else; kavach shipped that
+# fix only alongside its 6.7 move. ⛔ Do not go back to 3.13.x to "match the pin":
+# every 3.13.x cannot exec a uutils guest, which is /bin/echo and /bin/cat on Ubuntu
+# 25.10+ and fails `cyrius test` on `ubuntu-latest`. See CHANGELOG 1.0.5.
 [deps.kavach]
 git      = "https://github.com/MacCracken/kavach.git"
 path     = "../kavach"
-tag      = "3.13.3"
+tag      = "3.14.0"
 modules  = ["dist/kavach.cyr"]
 optional = true

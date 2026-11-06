@@ -6,10 +6,10 @@
 ## Version
 
 **1.0.5** — cut 2026-11-06. Toolchain + dependency refresh: pin `6.6.10` → `6.6.20`, kavach
-`3.13.1` → `3.13.3` (sigil `3.12.18` → `3.13.10`). No source change. `lib/` resolves to 69 modules
-(20 sandbox-off) and `dist/mehman.deps` is gone. Build, smoke, surface smoke, **109 asserts**, 3
-benches and fuzz all green, run as CI runs them. ⚠ kavach 3.13.3 cannot run uutils guests; see
-Toolchain.
+`3.13.1` → `3.14.0`, sigil `3.12.18` → `3.13.10` in the build. No source change. kavach 3.14.0 is
+what lets guests run on Ubuntu 25.10+ (uutils); see Toolchain. `lib/` resolves to 69 modules (20
+sandbox-off) and `dist/mehman.deps` is gone. Build, smoke, surface smoke, **109 asserts**, 3 benches
+and fuzz all green, run as CI runs them and on `ubuntu:26.04`.
 
 **1.0.4** — cut 2026-09-29. kavach → `3.13.1`, pin `6.6.2` → `6.6.10`: fixes two `struct
 SpawnedProcess` layouts, and two stale kavach enum spellings in `src/sandbox.cyr`.
@@ -44,24 +44,29 @@ benchmarks, a green downstream consumer (aethersafha), complete CHANGELOG, and a
 
 ## Toolchain
 
-- **Cyrius pin**: `6.6.20` (in `cyrius.cyml [package].cyrius`), the last 6.6.x;
-  kavach 3.13.3 is on the same pin. Build + smoke + **109-assert** suite + 3 benches
-  + fuzz green.
-- **kavach**: `3.13.3` (`[deps.kavach].tag`, optional behind the default-on
-  `sandbox` feature), with sigil `3.13.10` through kavach's own `[deps.sigil]`.
-  kavach 3.14.0 and later pin cyrius 6.7.x.
+- **Cyrius pin**: `6.6.20` (in `cyrius.cyml [package].cyrius`), the last 6.6.x.
+  Build + smoke + **109-assert** suite + 3 benches + fuzz green.
+- **kavach**: `3.14.0` (`[deps.kavach].tag`, optional behind the default-on
+  `sandbox` feature). ⚠ Its own pin is cyrius **6.7.9**, above this repo's, on
+  purpose: the bundle is 3.13.3's plus the pinned-exec fix below, and kavach shipped
+  that fix only with its 6.7 move. ⛔ Do not go back to 3.13.x to match the pin.
+- **sigil**: the build compiles **3.13.10**, the 6.6.20 stdlib snapshot's
+  `lib/sigil.cyr`. `cyrius.lock` records **3.13.11** because kavach 3.14.0 declares
+  it, but the snapshot wins and that tag is not built.
   ⚠ `path = "../kavach"` sits alongside the tag and **wins locally** below cyrius
   6.7.6, so only CI exercises the tag. The sibling was at 3.14.6 at this cut, so a
   plain `cyrius build`, `test` or `deps` in this tree vendors the sibling's bundle
   and rewrites the tracked `cyrius.lock`. To verify a bump, run CI's steps in a copy
   of the tracked files with no `../kavach` beside it, and do not commit a lock
   written in path mode.
-- **⚠ uutils guests exit 1** (kavach 3.12.7 – 3.13.x). A pinned exec names its
-  program `/dev/fd/N`, and uutils' multicall binary refuses to run under that name.
-  `confine_capture` and `persistent_spawn` both pin, so both mehman guest paths are
-  affected: `/bin/true`, `/bin/echo` and `/bin/cat` on Ubuntu 25.10 and later,
-  including the 26.04 image behind `ubuntu-latest`. kavach 3.14.0 fixes it and needs
-  cyrius 6.7.9.
+- **uutils guests** (fixed v1.0.5). On kavach 3.12.7 – 3.13.x a pinned exec named its
+  program `/dev/fd/N` and uutils' multicall binary refused to run, so a uutils guest
+  exited 1 with no output, on both mehman guest paths (`confine_capture`,
+  `persistent_spawn`). Ubuntu 26.04, behind `ubuntu-latest`, has `/bin/echo`,
+  `/bin/cat` and `/bin/false` as uutils and `/bin/true` as GNU. kavach 3.14.0 execs
+  through `/proc/self/fd/N`. To check a uutils host locally, build on the host and
+  run the static binary in a container:
+  `docker run --rm -v "$PWD/build:/t:ro" ubuntu:26.04 sh -c /t/<binary>`.
 - **`lib/` model**: `cyrius deps` alone, from an empty tree — **69 modules**
   default, **20** with `--no-default-features`. Do not use `cyrius lib sync
   --full`; it copies the whole 102-module snapshot and hides undeclared
@@ -220,7 +225,7 @@ pieces directly; adopting the handle is a follow-on).
 
 Direct (declared in `cyrius.cyml`):
 
-- **kavach 3.13.3** — sandbox-execution surface (one-shot + persistent-guest),
+- **kavach 3.14.0** — sandbox-execution surface (one-shot + persistent-guest),
   **`optional = true`** behind the
   default-on `sandbox` feature (cyrius dependency-model lever 2). Consumed as
   `dist/kavach.cyr` via `[deps.kavach]` (git + `../kavach` path); pulls transitive

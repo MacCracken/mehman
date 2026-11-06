@@ -149,8 +149,8 @@ applies from the cyrius version it names. Everything else that changes between t
   Since cyrius **6.6.20** every call binds the LAST definition, so a duplicate whose body differs changes what
   runs. At the 6.6.20 pin the compiler reports **0 `duplicate fn`** for the smoke, test, bench and fuzz units.
 
-## Inherited at v1.0.5 — for the next kavach move
+## Inherited at v1.0.5 — for the next cyrius pin move
 
-- **uutils guests exit 1** — kavach's pinned exec (3.12.7 – 3.13.x) cannot run uutils binaries, on either mehman
-  guest path. kavach **3.14.0** fixes it and needs cyrius >= **6.7.9**, so it arrives with the move past 6.6.x.
-  See `state.md` § Toolchain.
+- **kavach's pin is above ours** — mehman takes kavach **3.14.0** (own pin cyrius **6.7.9**) on cyrius 6.6.20,
+  for the uutils exec fix. A move to cyrius >= 6.7.9 closes the gap. Until then stay on 3.14.0: every 3.13.x fails
+  `cyrius test` on `ubuntu-latest`. See `state.md` § Toolchain.
