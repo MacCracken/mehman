@@ -75,7 +75,9 @@ fn guest_map(g): i64 {
 # guest_run(g): launch the guest under a kavach PROCESS sandbox and capture its
 # surface (the M2 handoff), recording the exec status and, on success,
 # transitioning to RUNNING. -> the MehmanError from the run (INVALID_SPEC for a
-# null or evicted guest, without touching kavach).
+# null or evicted guest, without touching kavach). A guest killed at its deadline
+# returns GUEST_TIMED_OUT with its status recorded and stays in its state: it has
+# been reaped, so it is not RUNNING, and it may be run again or evicted.
 fn guest_run(g): i64 {
     if (g == 0) { return MehmanError.INVALID_SPEC; }
     if (MehmanGuest_state(g) == MehmanGuestState.GUEST_EVICTED) { return MehmanError.INVALID_SPEC; }

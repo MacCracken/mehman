@@ -58,7 +58,7 @@ manifest half) *and* `#define MEHMAN_NO_SANDBOX 1` (the source half, set by
 `programs/surface_smoke.cyr` itself). `[features]` gates dependency resolution
 only. Building the sandbox-**on** entry point with `--no-default-features` fails by
 design. The `rm -rf lib` is not optional — vendoring is additive and never prunes,
-so resolving over a default `lib/` still sees all 69 heavy modules. Re-run plain
+so resolving over a default `lib/` still sees all 77 heavy modules. Re-run plain
 `cyrius deps` afterwards to get back to the default build.
 
 ## Consume mehman's surface contract (no kavach)

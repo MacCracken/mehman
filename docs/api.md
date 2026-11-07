@@ -22,7 +22,7 @@ Pointer-typed values are `i64`. Constructors return `0` on OOM / invalid input.
 
 | Symbol | Signature | Description |
 |---|---|---|
-| `MehmanError` | enum | `OK`, `INVALID_SPEC`, `SANDBOX_CREATE_FAILED`, `EXEC_FAILED`, `EXEC_BLOCKED`, `GUEST_REAP_FAILED`, `CAPABILITY_DENIED` |
+| `MehmanError` | enum | `OK`, `INVALID_SPEC`, `SANDBOX_CREATE_FAILED`, `EXEC_FAILED`, `EXEC_BLOCKED`, `GUEST_REAP_FAILED`, `CAPABILITY_DENIED`, `GUEST_TIMED_OUT` |
 | `mehman_err_name` | `(code) -> cstr` | human name for a `MehmanError` |
 | `mehman_err_print` | `(code, detail) -> 0` | print `mehman: <name>[: <detail>]` to stderr |
 | `MehmanCaps` | struct | bounded capability set: `native_protocol`, `mediated_io` |
@@ -77,6 +77,12 @@ kavach 3.11.4 began decoding the real status on both its capture paths. Use the
 `MehmanError` return to decide whether the run succeeded, and this value to
 decide what the guest itself reported. See ADR 0002's superseding note.
 
+A guest killed at its deadline (kavach's default, 30 s) returns
+`MehmanError.GUEST_TIMED_OUT`, with `out_exit_code` 137 and whatever it wrote before
+the kill still in the surface. kavach's externalization gate runs first: a killed
+guest whose output is quarantined returns `EXEC_BLOCKED`, with `out_exit_code`
+untouched. See [ADR 0008](adr/0008-report-a-deadline-kill-as-its-own-error.md).
+
 ## `src/guest.cyr` — guest lifecycle + M3 delivery (`sandbox` feature)
 
 | Symbol | Signature | Description |
@@ -85,7 +91,7 @@ decide what the guest itself reported. See ADR 0002's superseding note.
 | `MehmanGuest` | struct | `spec`, `surface`, `abi`, `state`, `exit_code`, `handle` |
 | `guest_spawn` | `(command, w, h) -> MehmanGuest*` | build spec + XRGB8888 surface + swallow ABI (CREATED) |
 | `guest_map` | `(g) -> MehmanError` | CREATED/MAPPED → MAPPED |
-| `guest_run` | `(g) -> MehmanError` | one-shot run + capture (M2); → RUNNING |
+| `guest_run` | `(g) -> MehmanError` | one-shot run + capture (M2); → RUNNING, except a guest killed at its deadline (`GUEST_TIMED_OUT`), which keeps its state |
 | `guest_start` | `(g) -> MehmanError` | **launch a persistent live guest** (M3); → RUNNING, sets `handle` |
 | `guest_send_input` | `(g, event) -> MehmanError` | **shim-encode + deliver an input event** to the live guest |
 | `guest_send_resize` | `(g, w, h) -> MehmanError` | shim-encode + deliver a resize event |
@@ -107,3 +113,9 @@ Branch on the `MehmanError` return to learn whether the run succeeded; read
 `out_exit_code` as the guest's status. Not an API-shape change — a semantics
 change inherited from kavach — but callers that tested `out_exit_code == 0` for
 success must move that test to the return value.
+
+⚠ **`mehman_sandbox_run_guest` / `mehman_sandbox_capture_guest` / `guest_run`: a guest
+killed at its deadline stopped returning `OK` at v1.1.1.** It returns the new
+`GUEST_TIMED_OUT`. No existing `MehmanError` value moved, so the shape is additive,
+but a caller that reads every non-`OK` return as "the guest never ran" now sees a
+guest that ran and was killed.

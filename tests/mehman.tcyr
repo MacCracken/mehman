@@ -19,6 +19,7 @@ fn main() {
     assert_neq(mehman_err_name(MehmanError.INVALID_SPEC), 0, "err_name(INVALID_SPEC) non-null");
     assert_neq(mehman_err_name(MehmanError.EXEC_BLOCKED), 0, "err_name(EXEC_BLOCKED) non-null");
     assert_neq(mehman_err_name(99), 0, "err_name(unknown) non-null");
+    assert_streq(mehman_err_name(MehmanError.GUEST_TIMED_OUT), "guest timed out", "err_name(GUEST_TIMED_OUT) is named");
     assert_eq(mehman_err_print(MehmanError.OK, 0), 0, "err_print returns 0");
 
     # ----- types.cyr — bounded capability set ---------------------------
@@ -130,6 +131,44 @@ fn main() {
     assert_eq(load8(capbuf + 3), 0, "byte 3 zero-filled past captured output");
     # capture rejects an invalid surface before touching kavach
     assert_eq(mehman_sandbox_capture_guest(guest_spec_new("/bin/true", caps_swallow_default()), 0, 0), MehmanError.INVALID_SPEC, "capture rejects null surface");
+
+    # ----- sandbox.cyr — guest deadline (real guests, really killed) ------
+    test_group("sandbox.cyr — guest deadline");
+    # kavach's default is 30 s; shorten it so the kill path runs here in ms. Every
+    # guest below would still be running at this deadline, and is genuinely killed.
+    var dcode = alloc(8);
+    _mehman_deadline_ms = 200;
+    store64(dcode, 0 - 1);
+    assert_eq(mehman_sandbox_run_guest(guest_spec_new("/bin/sleep 5", caps_swallow_default()), dcode), MehmanError.GUEST_TIMED_OUT, "guest past its deadline -> GUEST_TIMED_OUT, not OK");
+    assert_eq(load64(dcode), 137, "killed guest's status is still reported (SIGKILL -> 137)");
+    # what a guest wrote before the deadline still reaches the surface. The guest
+    # reads a file written here: kavach's externalization gate scans stdout, so a
+    # host file can read EXEC_BLOCKED on one host and pass on another. `tail -f
+    # /etc/passwd` did exactly that, passing on Arch and quarantined on Ubuntu.
+    var tfd = sys_open("/tmp/mehman-deadline-guest.txt", O_WRONLY | O_CREAT | O_TRUNC, 420);
+    assert_gte(tfd, 0, "deadline guest's file opens");
+    sys_write(tfd, "AB\n", 3);
+    sys_close(tfd);
+    var tbuf = alloc(64);
+    var tsurf = surface_new(4, 4, MehmanPixelFormat.XRGB8888, 16, tbuf);
+    assert_eq(mehman_sandbox_capture_guest(guest_spec_new("/usr/bin/tail -f /tmp/mehman-deadline-guest.txt", caps_swallow_default()), tsurf, dcode), MehmanError.GUEST_TIMED_OUT, "guest that wrote then blocked -> GUEST_TIMED_OUT");
+    assert_eq(load8(tbuf), 65, "output written before the kill is captured");
+    assert_eq(load8(tbuf + 1), 66, "output written before the kill is captured, byte 1");
+    sys_unlink("/tmp/mehman-deadline-guest.txt");
+    # the verdict belongs to one run: it must not leak into the next
+    _mehman_deadline_ms = 10000;
+    store64(dcode, 0 - 1);
+    assert_eq(mehman_sandbox_run_guest(guest_spec_new("/bin/true", caps_swallow_default()), dcode), MehmanError.OK, "a guest inside its deadline is OK after a kill");
+    assert_eq(load64(dcode), 0, "and its own status is 0");
+    # guest_run: a killed guest was reaped, so it does not reach RUNNING
+    _mehman_deadline_ms = 200;
+    var tg = guest_spawn("/bin/sleep 5", 8, 4);
+    assert_eq(guest_map(tg), MehmanError.OK, "timed-out guest maps");
+    assert_eq(guest_run(tg), MehmanError.GUEST_TIMED_OUT, "guest_run reports the kill");
+    assert_eq(guest_state(tg), MehmanGuestState.GUEST_MAPPED, "killed guest stays MAPPED, not RUNNING");
+    assert_eq(guest_exit_code(tg), 137, "killed guest's status is recorded");
+    assert_eq(guest_evict(tg), MehmanError.OK, "killed guest evicts");
+    _mehman_deadline_ms = 0;
 
     # ----- shim.cyr — M3 event translation (compositor → guest wire) -----
     test_group("shim.cyr — M3 per-ABI event translation");

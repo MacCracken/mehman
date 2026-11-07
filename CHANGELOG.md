@@ -4,6 +4,68 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-11-06
+
+### Changed — toolchain `6.7.9` → `6.7.18`, kavach `3.14.0` → `3.14.6`, sigil `3.13.11` → `3.13.15`
+
+The newest release of each, and they agree: kavach 3.14.6 pins cyrius 6.7.18 and declares sigil
+3.13.15, which the 6.7.18 stdlib snapshot ships. `lib/kavach.cyr` and `lib/sigil.cyr` are
+byte-identical to their tags. mehman's own change is `GUEST_TIMED_OUT`, below.
+
+- **`lib/` goes from 69 modules to 77**, seven of them in `lib/unicode/`, which bayan 1.11.1 includes.
+  That directory means an empty tree is now `rm -rf lib`, not `rm lib/*.cyr`.
+- **The smoke binary grows from 3,075,440 to 3,464,464 bytes**, with no `CYRIUS_DCE`, while static
+  data falls from 981,872 to 662,944 bytes. sigil's static-storage array warning is gone.
+- **Security fixes arrive with the toolchain and sigil:** CYRIUS-2026-0036 to 0050.
+
+### Changed — a guest killed at its deadline returns `MehmanError.GUEST_TIMED_OUT`, not `OK`
+
+kavach 3.14.4 reads the deadline on every capture pass, and no longer blocks on a guest that has
+closed its output. mehman sets no timeout, so a one-shot guest gets kavach's default of 30 s. A kill
+used to read as success, because `_mehman_run_guest` ignored kavach's `ExecResult.timed_out`. It now
+returns the new `GUEST_TIMED_OUT` (7), appended so no existing value moves. Measured through
+`mehman_sandbox_capture_guest` on `ubuntu:26.04`, with a guest that closes stdout and stderr and
+sleeps 40 s:
+
+| | ran for | `out_exit_code` | return |
+|---|---|---|---|
+| 1.1.0 (kavach 3.14.0) | 40,003 ms | 0 | `OK` |
+| 1.1.1 (kavach 3.14.6) | 30,002 ms | 137 | `GUEST_TIMED_OUT` |
+
+- ⚠ **A caller that reads every non-`OK` return as "the guest never ran" now sees a guest that ran
+  and was killed.** Through 1.1.0 a guest killed at the deadline returned `OK`.
+- **What the run did is still reported:** `out_exit_code` is 137, and output written before the kill
+  reaches the surface.
+- **`guest_run` records the status and does not move to `RUNNING`,** because the guest has been
+  reaped. It may be run again or evicted.
+- **kavach's externalization gate runs first.** A killed guest whose output is quarantined returns
+  `EXEC_BLOCKED`.
+- **Guests started with `guest_start` have no deadline** and are unchanged.
+- **The kill path is tested for the first time:** 14 new asserts against real guests. The private
+  `_mehman_deadline_ms` lets the suite shorten the deadline to 200 ms; it is not API. See
+  [ADR 0008](docs/adr/0008-report-a-deadline-kill-as-its-own-error.md).
+
+### Checked — what else the kavach and cyrius moves touch
+
+- **kavach's other behaviour changes do not apply.** They cover a rootfs, OCI, gVisor, WASM and
+  attestation, and mehman runs the PROCESS backend with no rootfs. Every kavach call mehman makes
+  keeps its signature. `sandbox_create` is the only one whose body changed: it initialises a new
+  field. The capture underneath them moved to a struct, which is how the deadline above arrived.
+- **The guest's seccomp filter is unchanged.** kavach moved the deny list to a table; compared row
+  by row against 3.14.0 it is the same 28 entries in the same order.
+- **Ordinary guests measure the same on both:** `/bin/echo`, `/bin/false`, `/bin/sleep 1`, and
+  `/usr/bin/seq` past the 1 MiB output cap (exit 141 on both).
+- **cyrius 6.7.10 – 6.7.18 needs no change here.** Of the 828 items in its migration notes, the 210
+  that touch what mehman uses (`#derive(accessors)`, enums, bare arrays, `#define`, top-level `var`s,
+  the CLI) ask for nothing, and all four compile units report 0 `duplicate fn`, layout or `undefined`
+  warnings. `cyrius lint`'s new write-length rule finds nothing.
+
+Verified the way CI runs: a copy of the tracked files, an empty `lib/`, no sibling checkout. Build,
+both smokes, **123 asserts**, 3 benches, fuzz, `cyrius distlib --check`, `cyrius deps --verify` (77 of
+77) and `cyrius deps --locked` all pass, and the test, smoke, surface-smoke and fuzz binaries pass on
+`ubuntu:26.04`. Four deliberate breaks of the deadline code each fail the suite. Interleaved benches
+against 1.1.0 show no change.
+
 ## [1.1.0] - 2026-11-06
 
 ### Changed — toolchain `6.6.20` → `6.7.9`, the 6.7 language minor

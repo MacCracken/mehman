@@ -95,7 +95,7 @@ jobs:
       # ⭐ WHY THIS IS A SEPARATE JOB, NOT A STEP IN THE ONE ABOVE.
       # It must resolve into an EMPTY lib/. `cyrius deps` vendors additively — it
       # never prunes — so running the sandbox-off resolve after the default one
-      # leaves all 69 heavy modules sitting in lib/, and the build then links
+      # leaves all 77 heavy modules sitting in lib/, and the build then links
       # against modules the sandbox-off manifest never asked for. That is the
       # `lib sync --full` failure mode wearing a different hat, and it would make
       # this guard vacuous. A separate job gets its own checkout, hence its own

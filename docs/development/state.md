@@ -5,6 +5,13 @@
 
 ## Version
 
+**1.1.1** — cut 2026-11-06. Newest toolchain and deps: pin `6.7.9` → `6.7.18`, kavach `3.14.0` →
+`3.14.6`, sigil `3.13.11` → `3.13.15`. A one-shot guest is now killed at kavach's 30 s deadline, and
+mehman returns the new `MehmanError.GUEST_TIMED_OUT`, not `OK`; see Toolchain and
+[ADR 0008](../adr/0008-report-a-deadline-kill-as-its-own-error.md). `lib/` resolves to 77 modules (20
+sandbox-off). Build, smoke, surface smoke, **123 asserts**, 3 benches and fuzz all green, run as CI
+runs them and on `ubuntu:26.04`.
+
 **1.1.0** — cut 2026-11-06. Toolchain moves to the 6.7 language minor: pin `6.6.20` → `6.7.9`.
 kavach stays `3.14.0`, now on the same pin, and sigil is `3.13.11` in the build as well as the
 lock. No source change, public API unchanged. `path = "../kavach"` is a dev override now, so a plain
@@ -50,12 +57,19 @@ benchmarks, a green downstream consumer (aethersafha), complete CHANGELOG, and a
 
 ## Toolchain
 
-- **Cyrius pin**: `6.7.9` (in `cyrius.cyml [package].cyrius`). Build + smoke +
-  **109-assert** suite + 3 benches + fuzz green.
-- **kavach**: `3.14.0` (`[deps.kavach].tag`, optional behind the default-on
-  `sandbox` feature), the release pinned to cyrius 6.7.9. Later 3.14.x pin 6.7.18.
-- **sigil**: `3.13.11`, declared by kavach and shipped by the 6.7.9 stdlib snapshot,
+- **Cyrius pin**: `6.7.18` (in `cyrius.cyml [package].cyrius`). Build + smoke +
+  **123-assert** suite + 3 benches + fuzz green.
+- **kavach**: `3.14.6` (`[deps.kavach].tag`, optional behind the default-on
+  `sandbox` feature), pinned to cyrius 6.7.18.
+- **sigil**: `3.13.15`, declared by kavach and shipped by the 6.7.18 stdlib snapshot,
   so the two agree: `lib/sigil.cyr` is byte-identical to the tag.
+- **Guest deadline.** mehman sets no timeout, so a one-shot guest gets kavach's 30 s
+  default, and since kavach 3.14.4 that holds even for a guest that closes its
+  output. A guest killed there returns `MehmanError.GUEST_TIMED_OUT` with
+  `out_exit_code` 137 and its output captured. kavach's gate runs first, so a killed
+  guest whose output is quarantined returns `EXEC_BLOCKED`. `guest_start` guests have
+  no deadline. ⚠ The gate scans guest stdout, so a test guest must not print host
+  files: `/etc/passwd` passes on one host and is quarantined on another.
 - **`path = "../kavach"` is a dev override** (cyrius >= 6.7.6). A default build
   resolves the tag, checks its commit pin and prints a `hint:` naming the skipped
   checkout, so a plain local build is what CI builds. `--local` / `CYRIUS_LOCAL=1`
@@ -70,12 +84,13 @@ benchmarks, a green downstream consumer (aethersafha), complete CHANGELOG, and a
   through `/proc/self/fd/N`. To check a uutils host locally, build on the host and
   run the static binary in a container:
   `docker run --rm -v "$PWD/build:/t:ro" ubuntu:26.04 sh -c /t/<binary>`.
-- **`lib/` model**: `cyrius deps` alone, from an empty tree — **69 modules**
-  default, **20** with `--no-default-features`. Do not use `cyrius lib sync
+- **`lib/` model**: `cyrius deps` alone, from an empty tree (`rm -rf lib`: it now
+  holds `lib/unicode/`) — **77 modules** default, **20** with
+  `--no-default-features`. Do not use `cyrius lib sync
   --full`; it copies the whole 102-module snapshot and hides undeclared
   dependencies from the build (removed from CI at v1.0.2). ⚠ Vendoring is
   ADDITIVE — `cyrius deps` never prunes, so a sandbox-off resolve run over a
-  default `lib/` still sees all 69 heavy modules. Re-resolve from an empty tree
+  default `lib/` still sees all 77 heavy modules. Re-resolve from an empty tree
   when switching configurations; this is why CI runs the two as separate jobs.
 - **`[deps].stdlib` is mehman's OWN needs only** — six leaves (`alloc`, `assert`,
   `bench`, `string`, `syscalls`, `vec`). kavach's transitive set arrives from its
@@ -148,8 +163,7 @@ as a Cyrius library — is resolved). See
   builds resolved through `path = "../kavach"` — the same tag-vs-path split that
   produced the 1.0.1 incident, in the opposite direction.
 - **Known-benign warnings** at this pin: the `sigil` stdlib-leaf note from `cyrius
-  deps`, sigil's static-storage array, and ~982 KB of static data (`CYRIUS_DCE=1`
-  drops the unreachable surface). **0 `duplicate fn`** across the smoke, test, bench
+  deps` and ~663 KB of static data (`CYRIUS_DCE=1` drops the unreachable surface). **0 `duplicate fn`** across the smoke, test, bench
   and fuzz units.
 
 ## M2 status — shipped (v0.3.0)
@@ -206,8 +220,9 @@ pieces directly; adopting the handle is a follow-on).
   `/bin/echo` output captured into a surface buffer) + M3 event translation
   (per-ABI input/resize/lifecycle wire, byte-checked) + M4 guest lifecycle
   (spawn/map/run/evict state machine, real launch+capture+evict) + M3 live
-  delivery (persistent /bin/cat guest: encode → deliver → read back). **109 asserts,
-  all passing** on `cyrius test`.
+  delivery (persistent /bin/cat guest: encode → deliver → read back) + the guest
+  deadline (real guests killed at a 200 ms deadline, via the private
+  `_mehman_deadline_ms`). **123 asserts, all passing** on `cyrius test`.
 - `tests/mehman.bcyr` — **benchmarks** of the compute hot paths (capture blit
   ~666 MiB/s; shim event translation ~13–14 ns/event); results in
   [`../benchmarks.md`](../benchmarks.md). Run: `cyrius bench tests/mehman.bcyr`.
@@ -225,7 +240,7 @@ pieces directly; adopting the handle is a follow-on).
 
 Direct (declared in `cyrius.cyml`):
 
-- **kavach 3.14.0** — sandbox-execution surface (one-shot + persistent-guest),
+- **kavach 3.14.6** — sandbox-execution surface (one-shot + persistent-guest),
   **`optional = true`** behind the
   default-on `sandbox` feature (cyrius dependency-model lever 2). Consumed as
   `dist/kavach.cyr` via `[deps.kavach]` (git + `../kavach` path); pulls transitive
@@ -234,7 +249,7 @@ Direct (declared in `cyrius.cyml`):
 - stdlib — **six leaves of mehman's own** (`alloc`, `assert`, `bench`, `string`,
   `syscalls`, `vec`); kavach's transitive union arrives from `dist/kavach.deps`.
   This is mehman's build concern only; **consumers declare their own** stdlib.
-- `lib/` is gitignored: **`cyrius deps` alone** regenerates it (69 modules) — from
+- `lib/` is gitignored: **`cyrius deps` alone** regenerates it (77 modules) — from
   an empty tree on a pin move. ⛔ Do **not** use `cyrius lib sync --full`: it copies
   the entire 102-module pinned snapshot, so the build resolves modules the manifest
   never declared and a dependency gap that breaks real consumers stays invisible.
