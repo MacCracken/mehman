@@ -124,20 +124,11 @@ evicted under compositor control (first downstream consumer green). Removes the
 - **The native Wayland protocol / client lifecycle.** That stays in aethersafha; mehman only sources foreign surfaces.
 - **Un-sandboxed foreign execution.** Foreign apps are *always* kavach-sandboxed — that boundary never collapses.
 
-## Recorded by cyrius 6.7.6 (2026-10-08) — for the next cyrius pin move
+## Recorded by cyrius 6.7.6 (2026-10-08)
 
-⛔ Needs cyrius >= 6.7.6 — nothing to do until cyrius 6.7.6 is tagged; then at your pin bump:
-
-- **Git first: a `path` beside `git` / `tag` becomes a dev override** (here: `kavach`).
-  From 6.7.6 it is read only in local mode (`CYRIUS_LOCAL=1`, `CYRIUS_LOCAL=<dep,dep>` or `--local`).
-  With no switch, `cyrius deps` / `build` resolve the TAG (commit pin checked) and print one `hint:`
-  line naming the checkout not used, so a local build and CI compile the same code.
-- Local mode prints a `local:` line per override and builds from `build/local-deps/` without writing
-  `lib/` or `cyrius.lock`; a hand-written `include "lib/<dep>.cyr"` sees the override there too (the
-  compiler's `CYRIUS_LIB_OVERLAY`, set by `cyrius`).
-- The first default resolve adds commit pins for these deps to `cyrius.lock` — a one-time diff.
-- CI lock guards and `sed`-the-path-out steps can become `cyrius deps --locked`.
-- Reference: the cyrius guide's *Git first; local development is a switch (6.7.6)*.
+- ✅ **Git first** — closed at v1.1.0, on cyrius 6.7.9. `path` beside `git` / `tag` is a dev override: a default
+  `cyrius deps` / `build` resolves the tag, and `--local` / `CYRIUS_LOCAL=1` reads the sibling. CI has no lock guard
+  or `sed`-the-path-out step to convert to `cyrius deps --locked`.
 
 ## Moved from cyrius's roadmap (2026-10-08) — for the next cyrius pin move
 
@@ -148,9 +139,3 @@ applies from the cyrius version it names. Everything else that changes between t
 - ✅ **Same-arity duplicate fns** — closed at v1.0.5. cyrius's 6.6.3 sweep recorded **19** in this repo's build.
   Since cyrius **6.6.20** every call binds the LAST definition, so a duplicate whose body differs changes what
   runs. At the 6.6.20 pin the compiler reports **0 `duplicate fn`** for the smoke, test, bench and fuzz units.
-
-## Inherited at v1.0.5 — for the next cyrius pin move
-
-- **kavach's pin is above ours** — mehman takes kavach **3.14.0** (own pin cyrius **6.7.9**) on cyrius 6.6.20,
-  for the uutils exec fix. A move to cyrius >= 6.7.9 closes the gap. Until then stay on 3.14.0: every 3.13.x fails
-  `cyrius test` on `ubuntu-latest`. See `state.md` § Toolchain.

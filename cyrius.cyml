@@ -4,7 +4,7 @@ version = "${file:VERSION}"
 description = "mehman — sovereign compat/swallow surface backend for the AGNOS compositor (hosts foreign-app surfaces in a kavach sandbox)"
 license = "GPL-3.0-only"
 language = "cyrius"
-cyrius = "6.6.20"
+cyrius = "6.7.9"
 
 [build]
 entry = "programs/smoke.cyr"
@@ -13,13 +13,6 @@ output = "build/mehman-smoke"
 [lib]
 modules = ["src/main.cyr"]
 
-# ⛔ KEEP `[deps]` INSIDE THE FIRST 4095 BYTES OF THIS FILE — long commentary goes
-# BELOW it, never above. `cyrius build/run/test` reach the resolver via
-# `_auto_deps`, which reads only the FIRST 4095 bytes looking for `[deps]`/`[deps.`
-# (6.5.27 `cbt/deps.cyr`). Push the marker past that and `cmd_deps()` never runs:
-# nothing is vendored, nothing is prepended, and the build dies on undefined stdlib
-# symbols — while a bare `cyrius deps` still reports success and fully populates
-# `lib/` (it reads 32767 bytes). No diagnostic names the cause.
 [deps]
 stdlib = ["alloc", "assert", "bench", "string", "syscalls", "vec"]
 
@@ -78,16 +71,10 @@ sandbox = ["kavach"]
 # source-included via src/main.cyr's chain. See ADR 0001/0002/0003/0007.
 # OPTIONAL, activated by the `sandbox` feature — skipped entirely when off.
 #
-# ⚠ `path` WINS OVER `tag`, so a local sibling checkout silently masks a wrong tag
-# here; re-verify this line against ../kavach/VERSION at every cut. That is the
-# 1.0.1 incident (a stale tag published for two cuts) and the 1.0.2 one (a tag four
-# patches behind a contract change) — see CHANGELOG.
-#
-# ⚠ THIS TAG'S OWN PIN (cyrius 6.7.9) IS ABOVE [package].cyrius, ON PURPOSE. 3.14.0's
-# bundle is 3.13.3's plus the pinned-exec fix and nothing else; kavach shipped that
-# fix only alongside its 6.7 move. ⛔ Do not go back to 3.13.x to "match the pin":
-# every 3.13.x cannot exec a uutils guest, which is /bin/echo and /bin/cat on Ubuntu
-# 25.10+ and fails `cyrius test` on `ubuntu-latest`. See CHANGELOG 1.0.5.
+# `path` IS A DEV OVERRIDE (cyrius >= 6.7.6): a default build resolves the tag, and
+# only `--local` / `CYRIUS_LOCAL=1` reads the sibling checkout, without touching
+# `lib/` or `cyrius.lock`. Through 6.7.5 `path` won over `tag` and masked a wrong
+# one here, which is the 1.0.1 and 1.0.2 incidents — see CHANGELOG.
 [deps.kavach]
 git      = "https://github.com/MacCracken/kavach.git"
 path     = "../kavach"

@@ -5,6 +5,12 @@
 
 ## Version
 
+**1.1.0** — cut 2026-11-06. Toolchain moves to the 6.7 language minor: pin `6.6.20` → `6.7.9`.
+kavach stays `3.14.0`, now on the same pin, and sigil is `3.13.11` in the build as well as the
+lock. No source change, public API unchanged. `path = "../kavach"` is a dev override now, so a plain
+local build is the tag CI builds. Build, smoke, surface smoke, **109 asserts**, 3 benches and fuzz
+all green, run as CI runs them and on `ubuntu:26.04`.
+
 **1.0.5** — cut 2026-11-06. Toolchain + dependency refresh: pin `6.6.10` → `6.6.20`, kavach
 `3.13.1` → `3.14.0`, sigil `3.12.18` → `3.13.10` in the build. No source change. kavach 3.14.0 is
 what lets guests run on Ubuntu 25.10+ (uutils); see Toolchain. `lib/` resolves to 69 modules (20
@@ -44,21 +50,18 @@ benchmarks, a green downstream consumer (aethersafha), complete CHANGELOG, and a
 
 ## Toolchain
 
-- **Cyrius pin**: `6.6.20` (in `cyrius.cyml [package].cyrius`), the last 6.6.x.
-  Build + smoke + **109-assert** suite + 3 benches + fuzz green.
+- **Cyrius pin**: `6.7.9` (in `cyrius.cyml [package].cyrius`). Build + smoke +
+  **109-assert** suite + 3 benches + fuzz green.
 - **kavach**: `3.14.0` (`[deps.kavach].tag`, optional behind the default-on
-  `sandbox` feature). ⚠ Its own pin is cyrius **6.7.9**, above this repo's, on
-  purpose: the bundle is 3.13.3's plus the pinned-exec fix below, and kavach shipped
-  that fix only with its 6.7 move. ⛔ Do not go back to 3.13.x to match the pin.
-- **sigil**: the build compiles **3.13.10**, the 6.6.20 stdlib snapshot's
-  `lib/sigil.cyr`. `cyrius.lock` records **3.13.11** because kavach 3.14.0 declares
-  it, but the snapshot wins and that tag is not built.
-  ⚠ `path = "../kavach"` sits alongside the tag and **wins locally** below cyrius
-  6.7.6, so only CI exercises the tag. The sibling was at 3.14.6 at this cut, so a
-  plain `cyrius build`, `test` or `deps` in this tree vendors the sibling's bundle
-  and rewrites the tracked `cyrius.lock`. To verify a bump, run CI's steps in a copy
-  of the tracked files with no `../kavach` beside it, and do not commit a lock
-  written in path mode.
+  `sandbox` feature), the release pinned to cyrius 6.7.9. Later 3.14.x pin 6.7.18.
+- **sigil**: `3.13.11`, declared by kavach and shipped by the 6.7.9 stdlib snapshot,
+  so the two agree: `lib/sigil.cyr` is byte-identical to the tag.
+- **`path = "../kavach"` is a dev override** (cyrius >= 6.7.6). A default build
+  resolves the tag, checks its commit pin and prints a `hint:` naming the skipped
+  checkout, so a plain local build is what CI builds. `--local` / `CYRIUS_LOCAL=1`
+  builds the sibling into `build/local-deps/` without writing `lib/` or
+  `cyrius.lock`. A tag bump keeps the old tag's commit row; delete `cyrius.lock` and
+  run `cyrius deps` to drop it.
 - **uutils guests** (fixed v1.0.5). On kavach 3.12.7 – 3.13.x a pinned exec named its
   program `/dev/fd/N` and uutils' multicall binary refused to run, so a uutils guest
   exited 1 with no output, on both mehman guest paths (`confine_capture`,
@@ -79,9 +82,6 @@ benchmarks, a green downstream consumer (aethersafha), complete CHANGELOG, and a
   `dist/kavach.deps` sidecar, automatically. ⛔ Do not re-add kavach's leaves by
   hand: that hand-copy is what drifted (missing `sakshi`) and broke the
   sandbox-off build for six weeks (v1.0.2, ADR 0007).
-- **Manifest constraint**: `[deps]` must start within the first **4095 bytes** of
-  `cyrius.cyml` — `_auto_deps` scans only that prefix, and past it nothing is
-  prepended with no diagnostic naming the manifest. Currently at byte **917**.
 
 ## Source
 
@@ -148,7 +148,7 @@ as a Cyrius library — is resolved). See
   builds resolved through `path = "../kavach"` — the same tag-vs-path split that
   produced the 1.0.1 incident, in the opposite direction.
 - **Known-benign warnings** at this pin: the `sigil` stdlib-leaf note from `cyrius
-  deps`, sigil's static-storage array, and ~984 KB of static data (`CYRIUS_DCE=1`
+  deps`, sigil's static-storage array, and ~982 KB of static data (`CYRIUS_DCE=1`
   drops the unreachable surface). **0 `duplicate fn`** across the smoke, test, bench
   and fuzz units.
 

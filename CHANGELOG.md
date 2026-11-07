@@ -4,6 +4,36 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-06
+
+### Changed — toolchain `6.6.20` → `6.7.9`, the 6.7 language minor
+
+kavach stays at `3.14.0`, the release pinned to cyrius 6.7.9, so its pin and this repo's agree
+again. No mehman source change, and the public API is unchanged.
+
+- **sigil is 3.13.11 in the build as well as the lock.** The 6.7.9 stdlib snapshot ships it, so
+  `lib/sigil.cyr` is byte-identical to `3.13.11:dist/sigil.cyr`. 1.0.5 recorded 3.13.11 and compiled
+  3.13.10.
+- **`path = "../kavach"` is a dev override now.** From cyrius 6.7.6 a default resolve builds the tag
+  and prints a `hint:` naming the checkout it skipped. A plain `cyrius build` or `cyrius test` with
+  the sibling at 3.14.6 left `lib/kavach.cyr` and `cyrius.lock` untouched, so the workarounds through
+  1.0.5 for resolving from a tag are gone. `--local` / `CYRIUS_LOCAL=1` reads the sibling.
+- **The 4095-byte `[deps]` warning is removed from `cyrius.cyml` and `state.md`.** cyrius has read
+  the whole manifest since 6.6.17, so the rule was already out of date at 1.0.5.
+
+### Checked — the 6.7.x changes a green build would not show
+
+6.7.3 to 6.7.9 change what some compiling code computes: a lone `!` was silently dropped until
+6.7.3, narrow `*T` dereferences change width at 6.7.8, and unary `-` / `~` on a constant bind
+differently at 6.7.9. mehman's sources, programs and tests have no `!`, no narrow `*T`, no
+dereferences, no `bool`, no `impl` and no `for`, and their only unary-looking form is `0 - 1`. None
+of these changes reach mehman's own code.
+
+Verified the way CI runs: a copy of the tracked files, an empty `lib/`, no sibling checkout. Build,
+both smokes, **109 asserts**, 3 benches, fuzz, `cyrius distlib --check`, `cyrius deps --verify` (69 of
+69) and `cyrius deps --locked` all pass, and the test, smoke, surface-smoke and fuzz binaries pass on
+`ubuntu:26.04`. Interleaved benches against 1.0.5 show no change.
+
 ## [1.0.5] - 2026-11-06
 
 ### Changed — toolchain `6.6.10` → `6.6.20`, kavach `3.13.1` → `3.14.0`
