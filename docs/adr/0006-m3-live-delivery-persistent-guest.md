@@ -47,6 +47,9 @@ unchanged.
   compositor frame loop; SIGPIPE ignore when a `sigaction` stdlib wrapper lands; an
   incremental streaming scanner for untrusted persistent guests.
 
+> **Corrected by [ADR 0009](0009-confine-live-guests-and-survive-their-exit.md) (v1.1.2)**: the spawn this ADR chose
+> applied no confinement, and the SIGPIPE follow-on is closed by blocking the signal for the write, not ignoring it.
+
 ## Alternatives considered
 
 - **Feed initial input at one-shot launch** (stdin-at-exec, no persistence).

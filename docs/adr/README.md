@@ -27,3 +27,4 @@ Decisions about mehman — what we chose, the context, and the consequences we a
 - [0006 — M3 live event delivery via a kavach persistent-guest model](0006-m3-live-delivery-persistent-guest.md) — *Accepted, 2026-07-03 (resolves 0005's deferral)*
 - [0007 — Make the sandbox-off build real rather than claimed](0007-make-the-sandbox-off-build-real.md) — *Accepted, 2026-08-18 (makes 0003's claimed configuration executable)*
 - [0008 — Report a deadline kill as its own error](0008-report-a-deadline-kill-as-its-own-error.md) — *Accepted, 2026-11-06 (`GUEST_TIMED_OUT` replaces a misleading `OK`)*
+- [0009 — Confine live guests, and survive their exit](0009-confine-live-guests-and-survive-their-exit.md) — *Accepted, 2026-11-08 (corrects 0006's unconfined spawn and its SIGPIPE follow-on)*

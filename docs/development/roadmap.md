@@ -117,6 +117,25 @@ evicted under compositor control (first downstream consumer green). Removes the
 > aethersafha (the downstream consumer) is green; adopting the `MehmanGuest` handle
 > in its `foreign.cyr` is a follow-on.
 
+## Open follow-ons
+
+M1–M4 are shipped and the v1.0 criteria are met, so no milestone is open. These remain, by what each waits on:
+
+- **Binary frames over stdout** — waits on kavach. A capture runs by the true byte count since v1.1.2, but kavach's gate reads
+  all of a guest's stdout as text and quarantines most pixel data (`EXEC_BLOCKED`). That needs a binary path through the gate
+  (on kavach's roadmap), or the shared-memory handoff below. See the note on
+  [ADR 0004](../adr/0004-m2-surface-capture-stdout-as-framebuffer.md).
+- **A filesystem bound for guests** — `policy_basic()` names no landlock rule, so a guest reads what its uid can. Needs a
+  decision on what a guest may see.
+- **A guest that stops reading cannot stall the compositor** — waits on non-blocking `persistent_send` /
+  `persistent_read` in kavach. A send blocks once the 64 KiB pipe is full.
+- **Real pixels** — a shared-memory handoff, so a guest that renders is captured. Stdout is still the framebuffer.
+- **aethersafha adopts `MehmanGuest`** in its `foreign.cyr` — its repo, and its surface-import API ("Bite G").
+- **A streaming scan of live guest output** — audit finding 4.
+
+Closed at v1.1.2: live guests are confined, a guest that exits no longer kills the host
+([ADR 0009](../adr/0009-confine-live-guests-and-survive-their-exit.md)), and a capture no longer stops at the first NUL.
+
 ## Out of scope (for v1.0)
 
 - **An X.Org / XWayland port.** mehman hosts foreign-*ABI* apps; it does not implement the X11 wire protocol. AGNOS has no native X11 client corpus.

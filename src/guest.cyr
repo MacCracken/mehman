@@ -98,11 +98,17 @@ fn guest_run(g): i64 {
 # guest_start(g): launch the guest as a PERSISTENT kavach process with live
 # stdin/stdout, storing the live handle and transitioning to RUNNING. -> OK, or
 # SANDBOX_CREATE_FAILED if the spawn failed, INVALID_SPEC for a null/evicted guest.
+#
+# The guest runs under `policy_basic()`, the policy a one-shot guest gets from
+# `config_new()`. ⛔ Do not go back to `persistent_spawn`: it applies no seccomp, no
+# landlock and no capability bound, whatever the caller holds. Through v1.1.1 this
+# called it, so a live guest had the host's network and no filter. See ADR 0009.
 fn guest_start(g): i64 {
     if (g == 0) { return MehmanError.INVALID_SPEC; }
     if (MehmanGuest_state(g) == MehmanGuestState.GUEST_EVICTED) { return MehmanError.INVALID_SPEC; }
     if (guest_spec_is_valid(MehmanGuest_spec(g)) == 0) { return MehmanError.INVALID_SPEC; }
-    var h = persistent_spawn(MehmanGuestSpec_command(MehmanGuest_spec(g)));
+    _mehman_kavach_ensure_init();
+    var h = persistent_spawn_confined(MehmanGuestSpec_command(MehmanGuest_spec(g)), policy_basic());
     if (h == 0) {
         mehman_err_print(MehmanError.SANDBOX_CREATE_FAILED, 0);
         return MehmanError.SANDBOX_CREATE_FAILED;
@@ -112,9 +118,50 @@ fn guest_start(g): i64 {
     return MehmanError.OK;
 }
 
+# SIGPIPE's bit in a kernel sigset (signal 13, so bit 12).
+const _MEHMAN_SIGPIPE_BIT = 0x1000;
+
+# Write wire bytes to a live guest's stdin. -> bytes written, or < 0. Private.
+#
+# A guest can exit on its own at any moment, and a write to its closed stdin raises
+# SIGPIPE, whose default action kills the writer: an untrusted guest could end the
+# compositor by exiting. So SIGPIPE is blocked on this thread for the write and, if
+# the write raised it, taken before the caller's mask comes back. Measured before
+# this existed: the next event sent to a guest that had exited killed the host, 141.
+#
+# ⛔ Not `signal_ignore(SIGPIPE)`. SIG_IGN is process-wide, overrides a consumer's
+# own handling, and survives execve, so every guest started afterwards would inherit
+# it and see EPIPE where it would have died. This is the pattern lib/tls.cyr uses
+# for the same reason. A SIGPIPE the caller already had blocked is left to the caller.
+fn _guest_write(h, bytes, n): i64 {
+    #ifdef CYRIUS_TARGET_LINUX
+    var set[8];
+    var old[8];
+    store64(&set, _MEHMAN_SIGPIPE_BIT);
+    store64(&old, 0);
+    if (sys_sigprocmask(0, &set, &old) == 0) {          # SIG_BLOCK
+        var r = persistent_send(h, bytes, n);
+        if ((r == (0 - 32)) && ((load64(&old) & _MEHMAN_SIGPIPE_BIT) == 0)) {   # -EPIPE
+            var ts[16];                                 # 16 BYTES: {0 s, 0 ns}
+            store64(&ts, 0);
+            store64(&ts + 8, 0);
+            #ifdef CYRIUS_ARCH_X86
+            syscall(128, &set, 0, &ts, 8);              # rt_sigtimedwait
+            #endif
+            #ifdef CYRIUS_ARCH_AARCH64
+            syscall(137, &set, 0, &ts, 8);              # rt_sigtimedwait
+            #endif
+        }
+        sys_sigprocmask(2, &old, 0);                    # SIG_SETMASK
+        return r;
+    }
+    #endif
+    return persistent_send(h, bytes, n);
+}
+
 # guest_send_input(g, event): translate an input event through the shim (M3) and
 # deliver its wire bytes to the live guest's stdin. -> OK, INVALID_SPEC (null
-# guest / unsupported ABI / bad event), or EXEC_FAILED (guest not started).
+# guest / unsupported ABI / bad event), or EXEC_FAILED (guest not started, or gone).
 fn guest_send_input(g, event): i64 {
     if (g == 0) { return MehmanError.INVALID_SPEC; }
     var h = MehmanGuest_handle(g);
@@ -122,11 +169,12 @@ fn guest_send_input(g, event): i64 {
     var wire[16];
     var n = shim_encode_input(MehmanGuest_abi(g), event, &wire);
     if (n == 0) { return MehmanError.INVALID_SPEC; }
-    persistent_send(h, &wire, n);
+    if (_guest_write(h, &wire, n) < 0) { return MehmanError.EXEC_FAILED; }
     return MehmanError.OK;
 }
 
 # guest_send_resize(g, w, h): translate + deliver a resize event to the live guest.
+# Same returns as guest_send_input.
 fn guest_send_resize(g, w, h): i64 {
     if (g == 0) { return MehmanError.INVALID_SPEC; }
     var handle = MehmanGuest_handle(g);
@@ -134,7 +182,7 @@ fn guest_send_resize(g, w, h): i64 {
     var wire[16];
     var n = shim_encode_resize(MehmanGuest_abi(g), w, h, &wire);
     if (n == 0) { return MehmanError.INVALID_SPEC; }
-    persistent_send(handle, &wire, n);
+    if (_guest_write(handle, &wire, n) < 0) { return MehmanError.EXEC_FAILED; }
     return MehmanError.OK;
 }
 

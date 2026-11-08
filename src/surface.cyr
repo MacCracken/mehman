@@ -7,11 +7,11 @@
 # bhumi's pixel model (XRGB8888, the DRM primary-plane default) so a captured
 # surface needs no format remap on handoff.
 #
-# SCOPE (M2 foundation): the descriptor + its validation only. The actual buffer
-# capture (shared-memory handoff from a sandboxed guest) and the handoff to
-# aethersafha's surface-import path are DEFERRED — both are gated on aethersafha
-# consuming mehman ("Bite G", post-MVP) and on a guest producing pixels rather
-# than stdout. This module is dependency-free (stdlib alloc only).
+# SCOPE: the descriptor, its validation, and the capture byte sink src/sandbox.cyr
+# blits a guest's stdout through (the stdout-as-framebuffer seam, ADR 0004). A guest
+# producing pixels rather than stdout (a shared-memory handoff) and aethersafha's
+# surface-import path are still DEFERRED. This module is dependency-free (stdlib
+# alloc only).
 
 # Pixel format. XRGB8888 is the only format the swallow stage handles for now —
 # 32bpp, little-endian bytes [B,G,R,X], the DRM primary-plane default the

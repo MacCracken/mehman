@@ -4,6 +4,90 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-11-08
+
+### Changed — kavach `3.14.6` → `3.14.9`
+
+The newest release, on the same cyrius 6.7.18 pin and sigil 3.13.15. `lib/kavach.cyr` and `lib/sigil.cyr` are
+byte-identical to their tags, and `lib/` stays at 77 modules (20 sandbox-off).
+
+- ⚠ **A one-shot guest has no network now**, where the kernel has landlock ABI v4 (Linux 6.7). `config_new()` gives it
+  `policy_basic()`, which denies network, and kavach 3.14.8 enforces that with no namespace: TCP connects and binds, UDP
+  and every other family but AF_UNIX and AF_NETLINK read EACCES. Through 3.14.7 the denial needed a namespace, which
+  mehman never asked for, so a guest had the host's network. Measured below.
+- **A guest run as root holds kavach's twelve capabilities**, not all of them, and each guest is in a landlock domain of
+  its own. Measured as root on `ubuntu:26.04`: `CapEff` `00000000a00405fb`.
+- **A one-shot guest stops costing 1 MiB.** kavach 3.14.7 gives each result a copy of what the guest wrote. `alloc_used()`
+  per `mehman_sandbox_run_guest` of `/bin/true`, averaged over 50 runs: 1,051,136 B at 1.1.1, 2,688 B now. That memory
+  was never freed, so a compositor running guests in a loop grew without bound.
+
+### Fixed — a live guest was not sandboxed
+
+`guest_start` called kavach's `persistent_spawn`, which applies no seccomp, no landlock and no capability bound. The
+roadmap's boundary is that a foreign app is *always* kavach-sandboxed, and on this path it never was. It now calls
+`persistent_spawn_confined` with `policy_basic()`, the policy a one-shot guest gets. See
+[ADR 0009](docs/adr/0009-confine-live-guests-and-survive-their-exit.md).
+
+Measured from inside a guest, as uid 1000 on Linux 7.2.14, with a real listener on loopback:
+
+| | one-shot, 1.1.1 | one-shot, 1.1.2 | live, 1.1.1 | live, 1.1.2 |
+|---|---|---|---|---|
+| TCP connect to the listener | **connects** | EACCES | **connects** | EACCES |
+| UDP socket | **opens** | EACCES | **opens** | EACCES |
+| `NoNewPrivs` | 1 | 1 | **0** | 1 |
+| `Seccomp` | 2 | 2 | **0** | 2 |
+
+The 1.1.2 columns read the same as root on `ubuntu:26.04`.
+
+- ⚠ **A live guest that relied on the network, or on a syscall the filter denies, stops working.** This is a behaviour
+  change inside the frozen API, accepted because the old behaviour broke the stated boundary.
+- **`guest_start` initialises kavach first**, as the one-shot path does, because the filter is built from its tables.
+
+### Fixed — a live guest that exits on its own no longer kills the host
+
+A write to the stdin of a guest that has exited raises SIGPIPE, whose default action kills the writer, so the next event
+sent to such a guest ended the compositor with status 141. A guest decides when it exits, so this was a guest-triggered
+crash. The 2026-07-03 audit recorded it as finding 5 and waited on a stdlib wrapper.
+
+- **`guest_send_input` and `guest_send_resize` block SIGPIPE on the calling thread for the write**, and take it if the
+  write raised it. They return `EXEC_FAILED`.
+- ⚠ **They used to return `OK` whatever the write did.** A caller now sees a guest that has gone. No `MehmanError` value
+  moved.
+- **Not `signal_ignore(SIGPIPE)`,** which the audit suggested. SIG_IGN is process-wide and survives `execve`, so every
+  later guest would inherit it. Measured: after a held send, `/usr/bin/seq` past the 1 MiB output cap still exits 141.
+
+### Fixed — a capture no longer stops at the first NUL
+
+`mehman_sandbox_capture_guest` and `guest_run` copy kavach's stored byte count, where they used `strlen`. kavach 3.14.9 added
+that count: through 3.14.8 no real capture stored one, so its accessor fell back to `strlen` too. Measured through
+`mehman_sandbox_capture_guest`:
+
+| Guest stdout | kavach 3.14.8, `strlen` | kavach 3.14.9 |
+|---|---|---|
+| `ABC\0DE` | 3 bytes | all 6 |
+| `ok\0AKIAIOSFODNN7EXAMPLE` | `OK`: the gate stopped at the NUL | `EXEC_BLOCKED` |
+| 256 KiB of random bytes | `OK`, clipped at the first NUL, 8 ms | `EXEC_BLOCKED`, 153 ms |
+
+- ⚠ **This does not make binary frames work, and a guest writing them now fails where it passed clipped.** kavach's gate
+  reads all of a guest's stdout as text, and its code scanner has two-byte rules such as `$(` that pixel data matches by
+  chance. A 256×256 XRGB gradient also reads QUARANTINE at the gate; a solid colour passes. Text guests are unaffected. See
+  the note on [ADR 0004](docs/adr/0004-m2-surface-capture-stdout-as-framebuffer.md).
+
+### Checked — what the kavach move does not change
+
+- **Every kavach call mehman makes keeps its signature.** `SANDBOX_POLICY_SIZE`, `EXEC_RESULT_SIZE` and the rest grew by
+  appending, and mehman reads those structs only through accessors.
+- **Still true of a guest, and measured here:** `policy_basic()` names no filesystem rule, so a live guest reads
+  `/etc/os-release`. A guest that stops reading its stdin holds up a send once the pipe is full: 21,841 key events into a
+  `/bin/sleep 3` guest blocked for 3,002 ms, then returned `EXEC_FAILED`. Both are on the roadmap.
+- **Stale `DEFERRED` notes corrected** in `src/shim.cyr`, `src/surface.cyr`, `src/main.cyr` and `state.md`. They described
+  the code before v1.0.0.
+
+Verified the way CI runs, against the released 3.14.9 tag: a copy of the tracked files, an empty `lib/`, no sibling
+checkout. Build, both smokes, **141 asserts** (18 new), 3 benches, fuzz, `cyrius distlib --check`, `cyrius deps --verify` (77
+of 77) and `cyrius deps --locked` all pass, and the test, smoke, surface-smoke and fuzz binaries pass on `ubuntu:26.04`.
+Seven deliberate breaks of the new code each fail the suite, two of them by dying of SIGPIPE. Benches match 1.1.1's.
+
 ## [1.1.1] - 2026-11-06
 
 ### Changed — toolchain `6.7.9` → `6.7.18`, kavach `3.14.0` → `3.14.6`, sigil `3.13.11` → `3.13.15`

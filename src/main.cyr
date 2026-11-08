@@ -63,8 +63,8 @@ include "src/types.cyr"        # foundation vocabulary: error / caps / guest spe
 include "lib/kavach.cyr"       # kavach sandbox-execution surface (dist bundle)
 include "src/sandbox.cyr"      # M1: kavach-sandboxed foreign host
 #endif
-include "src/surface.cyr"      # M2 foundation: foreign-surface descriptor (capture/handoff deferred)
-include "src/shim.cyr"         # M3 foundation: per-foreign-ABI event translation (delivery deferred)
+include "src/surface.cyr"      # M2: foreign-surface descriptor + capture byte sink
+include "src/shim.cyr"         # M3: per-foreign-ABI event translation (delivery is guest.cyr)
 #ifndef MEHMAN_NO_SANDBOX
 include "src/guest.cyr"        # M4: guest lifecycle — spawn / map / run / evict (kavach: persistent_*)
 #endif

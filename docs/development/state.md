@@ -5,6 +5,13 @@
 
 ## Version
 
+**1.1.2** — cut 2026-11-08. kavach `3.14.6` → `3.14.9`, on the same 6.7.18 pin. ⚠ Three changes to what a guest can do: a
+one-shot guest has no network (kavach 3.14.8), a live guest is now confined, which it never was, and a guest's stdout is
+captured and scanned past its first NUL (kavach 3.14.9), so binary stdout can return `EXEC_BLOCKED`. A live guest that
+exits on its own no longer kills the host on the next send; see Toolchain and
+[ADR 0009](../adr/0009-confine-live-guests-and-survive-their-exit.md). `lib/` stays at 77 modules (20 sandbox-off). Build,
+smoke, surface smoke, **141 asserts**, 3 benches and fuzz all green, run as CI runs them and on `ubuntu:26.04`.
+
 **1.1.1** — cut 2026-11-06. Newest toolchain and deps: pin `6.7.9` → `6.7.18`, kavach `3.14.0` →
 `3.14.6`, sigil `3.13.11` → `3.13.15`. A one-shot guest is now killed at kavach's 30 s deadline, and
 mehman returns the new `MehmanError.GUEST_TIMED_OUT`, not `OK`; see Toolchain and
@@ -58,11 +65,15 @@ benchmarks, a green downstream consumer (aethersafha), complete CHANGELOG, and a
 ## Toolchain
 
 - **Cyrius pin**: `6.7.18` (in `cyrius.cyml [package].cyrius`). Build + smoke +
-  **123-assert** suite + 3 benches + fuzz green.
-- **kavach**: `3.14.6` (`[deps.kavach].tag`, optional behind the default-on
+  **141-assert** suite + 3 benches + fuzz green.
+- **kavach**: `3.14.9` (`[deps.kavach].tag`, optional behind the default-on
   `sandbox` feature), pinned to cyrius 6.7.18.
 - **sigil**: `3.13.15`, declared by kavach and shipped by the 6.7.18 stdlib snapshot,
   so the two agree: `lib/sigil.cyr` is byte-identical to the tag.
+- **Guest confinement.** Both paths run `policy_basic()`: seccomp, `no_new_privs`, a landlock domain of the guest's own,
+  and, as root, kavach's twelve capabilities. Network is denied where the kernel has landlock ABI v4 (Linux 6.7), with no
+  namespace; AF_UNIX and AF_NETLINK stay open. ⚠ No filesystem bound: a guest reads what its uid can. ⛔ `guest_start`
+  must stay on `persistent_spawn_confined`; `persistent_spawn` applies none of this (ADR 0009).
 - **Guest deadline.** mehman sets no timeout, so a one-shot guest gets kavach's 30 s
   default, and since kavach 3.14.4 that holds even for a guest that closes its
   output. A guest killed there returns `MehmanError.GUEST_TIMED_OUT` with
@@ -134,14 +145,15 @@ benchmarks, a green downstream consumer (aethersafha), complete CHANGELOG, and a
   `MehmanAbi`) + per-ABI encoders `shim_encode_input` / `shim_encode_resize` /
   `shim_encode_lifecycle` (translate events → the swallow-ABI byte wire) +
   `shim_input_key` / `shim_input_pointer_button` / `shim_input_pointer_motion`.
-  Live delivery to a running guest is deferred (one-shot exec) — see M3 status.
+  Live delivery to a running guest is `src/guest.cyr`.
 - `src/guest.cyr` — **M4 guest lifecycle + M3 delivery**: `MehmanGuest`, the single
   backend handle the compositor drives — `guest_spawn` (spec + surface + ABI) /
   `guest_map` / `guest_run` (one-shot launch + capture) / `guest_evict`, over a
   CREATED → MAPPED → RUNNING → EVICTED state machine (+ accessors). Plus the **M3
-  live-delivery** path: `guest_start` (persistent kavach guest), `guest_send_input`
-  / `guest_send_resize` (shim-encode + stream to the live guest), `guest_read`. The
-  real public surface (retires the sentinel). Rides the `sandbox` feature (kavach).
+  live-delivery** path: `guest_start` (confined persistent kavach guest),
+  `guest_send_input` / `guest_send_resize` (shim-encode + stream to the live guest,
+  surviving one that has exited), `guest_read`. The real public surface (retires the
+  sentinel). Rides the `sandbox` feature (kavach).
 
 ## M1 status — shipped (v0.2.0)
 
@@ -178,10 +190,11 @@ mehman's `types`/`surface`/`sandbox` modules directly (with its own `[deps.kavac
 it switches `foreign_run` to `mehman_sandbox_capture_guest` to back its hosted
 window with live guest content.
 
-- **Capture model** is **stdout-as-framebuffer** (MVP seam): kavach's PROCESS
-  backend gives stdout as a NUL-terminated cstr, so binary XRGB8888 truncates at
-  the first NUL. Real pixel fidelity (shared-memory handoff, a kavach byte-count,
-  or an M3 per-ABI shim) is the follow-on. See
+- **Capture model** is **stdout-as-framebuffer** (MVP seam). Since v1.1.2 the copy
+  runs by kavach's stored byte count (kavach 3.14.9), so a NUL does not end it.
+  ⚠ Binary frames still do not get through: kavach's gate reads them as text and
+  quarantines most pixel data (`EXEC_BLOCKED`). Real pixel fidelity (a shared-memory
+  handoff, or an M3 per-ABI shim) is the follow-on. See
   [ADR 0004](../adr/0004-m2-surface-capture-stdout-as-framebuffer.md).
 - The descriptor + format stay value-aligned with bhumi's XRGB8888 model, so no
   remap on handoff.
@@ -222,7 +235,9 @@ pieces directly; adopting the handle is a follow-on).
   (spawn/map/run/evict state machine, real launch+capture+evict) + M3 live
   delivery (persistent /bin/cat guest: encode → deliver → read back) + the guest
   deadline (real guests killed at a 200 ms deadline, via the private
-  `_mehman_deadline_ms`). **123 asserts, all passing** on `cyrius test`.
+  `_mehman_deadline_ms`) + live-guest confinement (read from `/proc/<pid>/status`) + a
+  live guest that exits on its own + capture past an embedded NUL. **141 asserts, all
+  passing** on `cyrius test`.
 - `tests/mehman.bcyr` — **benchmarks** of the compute hot paths (capture blit
   ~666 MiB/s; shim event translation ~13–14 ns/event); results in
   [`../benchmarks.md`](../benchmarks.md). Run: `cyrius bench tests/mehman.bcyr`.
@@ -240,7 +255,7 @@ pieces directly; adopting the handle is a follow-on).
 
 Direct (declared in `cyrius.cyml`):
 
-- **kavach 3.14.6** — sandbox-execution surface (one-shot + persistent-guest),
+- **kavach 3.14.9** — sandbox-execution surface (one-shot + persistent-guest),
   **`optional = true`** behind the
   default-on `sandbox` feature (cyrius dependency-model lever 2). Consumed as
   `dist/kavach.cyr` via `[deps.kavach]` (git + `../kavach` path); pulls transitive
@@ -272,5 +287,5 @@ lacks a surface-import API, and a guest producing pixels (not stdout) is absent.
 
 ## Next
 
-See [`roadmap.md`](roadmap.md). M2 — foreign-surface capture (`src/surface.cyr`),
-gated on the aethersafha surface-import API.
+No milestone is open. See [`roadmap.md`](roadmap.md) "Open follow-ons" for what remains
+and what each item waits on.

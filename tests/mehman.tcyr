@@ -6,6 +6,37 @@
 # includes the module.
 include "src/main.cyr"
 
+# 1 if the pid's /proc status has a line starting with `needle`, else 0. How a test
+# sees what a live guest was actually given, from outside it.
+fn _t_status_has(pid, needle) {
+    var path = alloc(64);
+    var digits = alloc(32);
+    var d = 0;
+    var p = pid;
+    while (p > 0) { store8(digits + d, 48 + (p % 10)); p = p / 10; d = d + 1; }
+    memcpy(path, "/proc/", 6);
+    var at = 6;
+    while (d > 0) { d = d - 1; store8(path + at, load8(digits + d)); at = at + 1; }
+    memcpy(path + at, "/status", 8);     # 8: the NUL comes with it
+    var fd = sys_open(path, O_RDONLY, 0);
+    if (fd < 0) { return 0; }
+    var buf = alloc(8192);
+    var n = sys_read(fd, buf, 8192);
+    sys_close(fd);
+    var k = strlen(needle);
+    var i = 0;
+    while (i + k <= n) {
+        var line_start = 0;
+        if (i == 0) { line_start = 1; }
+        else { if (load8(buf + i - 1) == 10) { line_start = 1; } }
+        if (line_start == 1) {
+            if (memeq(buf + i, needle, k) == 1) { return 1; }
+        }
+        i = i + 1;
+    }
+    return 0;
+}
+
 fn main() {
     alloc_init();
 
@@ -131,6 +162,18 @@ fn main() {
     assert_eq(load8(capbuf + 3), 0, "byte 3 zero-filled past captured output");
     # capture rejects an invalid surface before touching kavach
     assert_eq(mehman_sandbox_capture_guest(guest_spec_new("/bin/true", caps_swallow_default()), 0, 0), MehmanError.INVALID_SPEC, "capture rejects null surface");
+    # A NUL no longer ends a capture (kavach 3.14.9 stores the byte count). Through
+    # v1.1.1 this guest captured 3 bytes and the rest read as zero fill.
+    var nbuf = alloc(64);
+    var nsurf = surface_new(4, 4, MehmanPixelFormat.XRGB8888, 16, nbuf);
+    assert_eq(mehman_sandbox_capture_guest(guest_spec_new("/usr/bin/printf ABC\\000DE", caps_swallow_default()), nsurf, capexit), MehmanError.OK, "guest output with an embedded NUL is captured");
+    assert_eq(load8(nbuf + 2), 67, "byte before the NUL = 'C'");
+    assert_eq(load8(nbuf + 3), 0, "the NUL itself is byte 3");
+    assert_eq(load8(nbuf + 4), 68, "capture runs past the NUL: 'D'");
+    assert_eq(load8(nbuf + 5), 69, "capture runs past the NUL: 'E'");
+    assert_eq(load8(nbuf + 6), 0, "zero-filled past the captured length");
+    # The gate reads as far as the capture does: a NUL hides nothing from it.
+    assert_eq(mehman_sandbox_capture_guest(guest_spec_new("/usr/bin/printf ok\\000AKIAIOSFODNN7EXAMPLE", caps_swallow_default()), nsurf, capexit), MehmanError.EXEC_BLOCKED, "a credential behind a NUL is blocked, not captured");
 
     # ----- sandbox.cyr — guest deadline (real guests, really killed) ------
     test_group("sandbox.cyr — guest deadline");
@@ -246,10 +289,37 @@ fn main() {
     assert_eq(load8(dbuf + 0), 0x01, "delivered byte 0 = key wire tag");
     assert_eq(load8(dbuf + 1), 0x29, "delivered byte 1 = HID_ESC");
     assert_eq(load8(dbuf + 2), 1, "delivered byte 2 = pressed");
+    # A live guest is confined. Read after the round trip above: confinement is
+    # applied before execve, so a guest that has echoed has it. NoNewPrivs is the
+    # discriminating line, 0 on an unconfined spawn; Seccomp is already 2 inside a
+    # container, so it proves less there.
+    var dpid = persistent_pid(guest_handle(dg));
+    assert_gt(dpid, 0, "live guest has a pid");
+    assert_eq(_t_status_has(dpid, "NoNewPrivs:\t1"), 1, "live guest holds no_new_privs");
+    assert_eq(_t_status_has(dpid, "Seccomp:\t2"), 1, "live guest runs under a seccomp filter");
     # evict terminates + reaps the live guest
     assert_eq(guest_evict(dg), MehmanError.OK, "evict -> OK");
     assert_eq(guest_handle(dg), 0, "handle cleared after evict");
     assert_eq(guest_state(dg), MehmanGuestState.GUEST_EVICTED, "evicted -> EVICTED");
+
+    # A guest that exits on its own must not take the compositor with it. A send to
+    # its closed stdin raises SIGPIPE: without the hold in guest.cyr this suite dies
+    # here (exit 141), and that is the failure this group exists to show.
+    test_group("guest.cyr — a live guest that exits on its own");
+    var xg = guest_spawn("/bin/true", 8, 4);
+    assert_eq(guest_start(xg), MehmanError.OK, "self-exiting guest starts");
+    var xbuf = alloc(16);
+    # guest_read blocks until the guest has gone. An exiting process closes fd 0
+    # before fd 1, so EOF here means its stdin is already closed.
+    assert_eq(guest_read(xg, xbuf, 16), 0, "self-exited guest reads EOF");
+    assert_eq(guest_send_input(xg, shim_input_key(0x29, 1)), MehmanError.EXEC_FAILED, "input to an exited guest -> EXEC_FAILED, and we survive");
+    assert_eq(guest_send_resize(xg, 800, 600), MehmanError.EXEC_FAILED, "resize to an exited guest -> EXEC_FAILED, and we survive");
+    var xmask[8];
+    store64(&xmask, 0);
+    assert_eq(sys_sigprocmask(0, 0, &xmask), 0, "signal mask reads back");
+    assert_eq(load64(&xmask) & 0x1000, 0, "SIGPIPE is not left blocked");
+    assert_eq(guest_evict(xg), MehmanError.OK, "self-exited guest still evicts + reaps");
+    assert_eq(guest_handle(xg), 0, "self-exited guest's handle cleared");
 
     return assert_summary();
 }

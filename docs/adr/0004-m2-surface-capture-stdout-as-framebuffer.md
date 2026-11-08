@@ -47,6 +47,14 @@ sandboxed and delivers bytes into the compositor's surface buffer.
   or a **shared-memory** handoff backend (the guest renders into a buffer mehman
   maps), or a per-ABI **shim** (M3) that draws the guest's output into the surface.
 
+> **Note, v1.1.2 (2026-11-08)**: the byte-count path is taken, and it does not deliver pixels. kavach 3.14.9 stores the
+> capture's byte count and mehman blits `exec_result_stdout_len(res)`, so `ABC\0DE` captures all 6 bytes. Through kavach
+> 3.14.8 no real capture stored one, so the accessor fell back to `strlen` and a binary frame passed clipped at its first NUL.
+>
+> ⚠ Binary frames still do not get through. kavach's gate now reads the whole frame as text, and its code scanner quarantines
+> pixel data. Measured: 256 KiB of random bytes returns `EXEC_BLOCKED`, and a 256×256 XRGB gradient reads QUARANTINE at the
+> gate. Binary frames need a path past kavach's text scanners, or the shared-memory handoff.
+
 ## Alternatives considered
 
 - **Block M2 until real pixel capture exists.** Rejected — the seam (API + data

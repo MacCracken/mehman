@@ -7,13 +7,10 @@
 # module defines the event vocabulary and ENCODES each event into a guest-ABI
 # byte wire — the "translation" half of M3.
 #
-# SCOPE (M3 foundation): the event types + the per-ABI encoders. Dependency-free
-# (stdlib only) — a consumer (aethersafha) can build events and translate them
-# without pulling the sandbox/kavach surface. LIVE DELIVERY of the encoded bytes
-# to a running guest is DEFERRED: a kavach PROCESS-backend guest is one-shot
-# (fork+exec+reap, no live stdin), so there is no persistent guest to stream
-# events to yet. Delivery lands with a persistent-guest execution model (a kavach
-# change), the same way M2's real-pixel capture is deferred behind the stdout MVP.
+# SCOPE: the event types + the per-ABI encoders. Dependency-free (stdlib only) — a
+# consumer (aethersafha) can build events and translate them without pulling the
+# sandbox/kavach surface. LIVE DELIVERY of the encoded bytes to a running guest is
+# src/guest.cyr's half of M3 (`guest_send_input` / `guest_send_resize`, v1.0.0).
 
 # --- event vocabulary --------------------------------------------------------
 

@@ -92,9 +92,9 @@ untouched. See [ADR 0008](adr/0008-report-a-deadline-kill-as-its-own-error.md).
 | `guest_spawn` | `(command, w, h) -> MehmanGuest*` | build spec + XRGB8888 surface + swallow ABI (CREATED) |
 | `guest_map` | `(g) -> MehmanError` | CREATED/MAPPED → MAPPED |
 | `guest_run` | `(g) -> MehmanError` | one-shot run + capture (M2); → RUNNING, except a guest killed at its deadline (`GUEST_TIMED_OUT`), which keeps its state |
-| `guest_start` | `(g) -> MehmanError` | **launch a persistent live guest** (M3); → RUNNING, sets `handle` |
-| `guest_send_input` | `(g, event) -> MehmanError` | **shim-encode + deliver an input event** to the live guest |
-| `guest_send_resize` | `(g, w, h) -> MehmanError` | shim-encode + deliver a resize event |
+| `guest_start` | `(g) -> MehmanError` | **launch a persistent live guest** (M3) under `policy_basic()`; → RUNNING, sets `handle` |
+| `guest_send_input` | `(g, event) -> MehmanError` | **shim-encode + deliver an input event** to the live guest; `EXEC_FAILED` if not started or gone |
+| `guest_send_resize` | `(g, w, h) -> MehmanError` | shim-encode + deliver a resize event; `EXEC_FAILED` if not started or gone |
 | `guest_read` | `(g, buf, len) -> i64` | read the live guest's output (bytes, or -1) |
 | `guest_evict` | `(g) -> MehmanError` | terminate + reap the live handle; → EVICTED |
 | `guest_spec/surface/abi/state/exit_code/handle` | `(g) -> i64` | field accessors |
@@ -103,8 +103,8 @@ untouched. See [ADR 0008](adr/0008-report-a-deadline-kill-as-its-own-error.md).
 
 See the [README](../README.md) "Consume mehman's surface contract" section. The
 dep-free tier needs no kavach; the sandbox tier requires the `sandbox` feature and
-kavach 3.7.0. Stability: this surface is **frozen at v1.0** — additive changes only
-within 1.x.
+the kavach tag `cyrius.cyml` pins. Stability: this surface is **frozen at v1.0** —
+additive changes only within 1.x.
 
 ⚠ **`mehman_sandbox_run_guest` / `mehman_sandbox_capture_guest`: `out_exit_code`
 changed meaning at v1.0.2.** It is now the guest's own `WEXITSTATUS` (kavach
@@ -119,3 +119,14 @@ killed at its deadline stopped returning `OK` at v1.1.1.** It returns the new
 `GUEST_TIMED_OUT`. No existing `MehmanError` value moved, so the shape is additive,
 but a caller that reads every non-`OK` return as "the guest never ran" now sees a
 guest that ran and was killed.
+
+⚠ **Guests changed what they can do at v1.1.2** (kavach 3.14.9,
+[ADR 0009](adr/0009-confine-live-guests-and-survive-their-exit.md)). Where the kernel
+has landlock ABI v4, one-shot and live guests have no network. Live guests now run
+under seccomp and `no_new_privs`, as one-shot guests always did. `guest_send_input`
+and `guest_send_resize` return `EXEC_FAILED` for a guest that has exited, where they
+returned `OK`, and that guest no longer kills the host with SIGPIPE. Neither path
+bounds the filesystem: a guest reads what its uid can.
+`mehman_sandbox_capture_guest` and `guest_run` capture past a NUL, and a guest writing
+binary to stdout may return `EXEC_BLOCKED` where it passed clipped: kavach's gate reads
+all of it as text.

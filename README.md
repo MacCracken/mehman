@@ -48,7 +48,7 @@ contract a compositor imports — builds with kavach absent from both the manife
 and the include chain:
 
 ```sh
-rm -rf lib && cyrius deps --no-default-features       # 18 modules; no kavach/sigil/sandhi/tls
+rm -rf lib && cyrius deps --no-default-features       # 20 modules; no kavach/sigil/sandhi/tls
 cyrius build --no-default-features programs/surface_smoke.cyr build/mehman-surface-smoke
 ./build/mehman-surface-smoke
 ```

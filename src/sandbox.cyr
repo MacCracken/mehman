@@ -64,13 +64,15 @@ fn mehman_sandbox_run_guest(spec, out_exit_code): i64 {
 # hosts a window backed by that buffer). Validates the guest spec and the surface
 # first, then runs the guest and blits its captured output into the surface.
 #
-# CAPTURE MODEL / CAVEAT: kavach's PROCESS backend captures the guest's stdout as
-# a NUL-terminated cstr, so the swallow-stage MVP treats stdout AS the guest's
+# CAPTURE MODEL / CAVEAT: the swallow-stage MVP treats the guest's stdout AS its
 # framebuffer and copies it into the surface buffer (bounded by the buffer size;
-# `surface_blit_bytes` zero-fills the uncovered tail). The captured length is
-# strlen(stdout), so binary XRGB8888 with embedded NUL bytes truncates at the
-# first NUL. True framebuffer capture (a shared-memory handoff, or kavach exposing
-# the raw byte count) is a future refinement; this establishes the seam.
+# `surface_blit_bytes` zero-fills the uncovered tail). The copy runs by kavach's
+# stored byte count (kavach >= 3.14.9), so a NUL does not end it.
+#
+# ⚠ THAT DOES NOT MAKE BINARY FRAMES WORK. kavach's externalization gate reads the
+# same bytes as text, and its code scanner quarantines most real pixel data, which
+# returns EXEC_BLOCKED. Text output is what this path carries. True framebuffer
+# capture (a shared-memory handoff) is a future refinement; see ADR 0004.
 #
 # Returns MehmanError.OK on a clean run+capture+reap, or a MehmanError code. A guest
 # killed at its deadline returns GUEST_TIMED_OUT, and what it wrote before then is
@@ -129,7 +131,7 @@ fn _mehman_run_guest(spec, surface, out_exit_code): i64 {
     if (surface != 0) {
         var out = ExecResult_stdout(res);
         var n = 0;
-        if (out != 0) { n = strlen(out); }
+        if (out != 0) { n = exec_result_stdout_len(res); }
         surface_blit_bytes(surface, out, n);
     }
 
